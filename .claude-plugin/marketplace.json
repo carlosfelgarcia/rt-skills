@@ -1,0 +1,14 @@
+{
+  "name": "rt-skills",
+  "owner": {
+    "name": "Carlos Garcia"
+  },
+  "description": "RationalBit agent skills, as an installable Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "rt-skills",
+      "source": "./",
+      "description": "RationalBit agent skills."
+    }
+  ]
+}

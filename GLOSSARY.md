@@ -1,0 +1,35 @@
+# RT Skills
+
+Agent skills for RationalBit projects, packaged as an installable Claude Code plugin.
+
+## Language
+
+**Architecture reviewer**:
+The code reviewer that judges how a change is structured.
+_Avoid_: design reviewer, standards reviewer
+
+**Test reviewer**:
+The code reviewer that judges a change's tests, and the new behavior that has none.
+_Avoid_: coverage reviewer
+
+**QA reviewer**:
+The code reviewer that judges whether the production code in a change works.
+_Avoid_: Q&A reviewer, quality reviewer
+
+**Review target**:
+The change a code review judges.
+_Avoid_: scope, input
+
+### Severity
+
+**Blocking**:
+A finding that causes a bug, data loss, a security hole or a broken caller, or a test that cannot fail for the defect it exists to catch.
+_Avoid_: critical, must-fix
+
+**Should-fix**:
+A finding that works today but costs time later: a design smell, untested new behavior, an unclear failure mode.
+_Avoid_: major, warning
+
+**Nit**:
+A finding about taste.
+_Avoid_: minor, suggestion

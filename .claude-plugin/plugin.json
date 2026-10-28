@@ -1,0 +1,9 @@
+{
+  "name": "rt-skills",
+  "version": "0.1.0",
+  "description": "RationalBit agent skills.",
+  "author": {
+    "name": "Carlos Garcia"
+  },
+  "repository": "https://github.com/carlosfelgarcia/rt-skills"
+}
