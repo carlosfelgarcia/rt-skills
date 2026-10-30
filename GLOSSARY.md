@@ -20,6 +20,14 @@ _Avoid_: Q&A reviewer, quality reviewer
 The change a code review judges.
 _Avoid_: scope, input
 
+**Change summary**:
+The first section of a code review report: a short overview and up to three diagrams of what the review target changes. It judges nothing.
+_Avoid_: description, changelog
+
+**Change summariser**:
+The agent that writes the change summary while the three reviewers work.
+_Avoid_: fourth reviewer, summary reviewer
+
 ### Severity
 
 **Blocking**:

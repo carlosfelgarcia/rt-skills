@@ -1,13 +1,13 @@
 ---
 name: rt-code-review
-description: Review a change with an architecture reviewer, a test reviewer and a QA reviewer, then open an HTML report.
+description: Review a change with an architecture reviewer, a test reviewer and a QA reviewer, then open an HTML report that starts with a visual summary of the change.
 disable-model-invocation: true
 argument-hint: "[PR number | ref]"
 ---
 
 # RT code review
 
-Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test.
+Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test. In the same batch, a change summariser writes the **change summary** that opens the report, so a reader knows what changed before they read a finding.
 
 ## 1. Resolve the review target
 
@@ -36,9 +36,9 @@ Build the **target block** the reviewers receive: mode, repo root path, BASE, he
 
 **Done when** every field of the target block is filled. Stop here and tell the user why, in one sentence, if any command in the first table fails (an unknown ref, a `gh pr view` or `git fetch` error, no default branch), or if the diff and the untracked list are both empty.
 
-## 2. Start the three reviewers
+## 2. Start the reviewers and the change summariser
 
-Send one message with three `Agent` calls, `subagent_type: rt-skills:rt-reviewer`, no model override. Each reviewer's prompt has exactly three parts, in this order:
+Send one message with four `Agent` calls, no model override: one per reviewer with `subagent_type: rt-skills:rt-reviewer`, and one for the change summariser with `subagent_type: rt-skills:rt-change-summariser`. Each agent's prompt has exactly three parts, in this order:
 
 1. The target block.
 2. **Role line**: "You are the <role>. Read `<this skill's base directory>/reviewer-brief.md` and `<this skill's base directory>/<role-file>`, then follow them."
@@ -50,12 +50,18 @@ Send one message with three `Agent` calls, `subagent_type: rt-skills:rt-reviewer
 | Test reviewer | `test-reviewer.md` |
 | QA reviewer | `qa-reviewer.md` |
 
-**Done when** all three reviewers have returned.
+The change summariser gets the same target block, with a different role line and return line:
+
+- **Role line**: "You are the change summariser. Read `<this skill's base directory>/change-summariser.md`, then follow it."
+- **Return line**: "Return the change summary in the shape the file defines, and nothing else."
+
+**Done when** all four agents have returned.
 
 ## 3. Build the HTML report
 
 Invoke the `show-me` skill for its diagram guidance. Then fill [`report-template.html`](report-template.html):
 
+- The change summary goes into the `Change summary` section. The overview becomes `<p>` text. Each view becomes an `<h3>` title, a `<p>` sentence and a block chosen by its fence language: `mermaid` goes in a `<pre class="mermaid">`, `diff` goes in a `<pre class="diff">`, and every other language goes in a plain `<pre>`.
 - Each reviewer's findings go into that reviewer's section, in the order the reviewer returned them, with the reviewer's wording.
 - A finding with a `Structure` field gets a Mermaid `graph` drawn from it, in the finding card. A `Fix` with a `diff` block goes in a `<pre class="diff">`. Every other finding stays text.
 - HTML-escape all code, paths and diff text.
@@ -63,11 +69,16 @@ Invoke the `show-me` skill for its diagram guidance. Then fill [`report-template
 
 The report page is the only file this step writes; it is opened in step 4. Write it with one `Write` call to `/tmp/rt-code-review/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>.html`, with `/` in the branch name replaced by `-`.
 
-**Done when** every finding from all three reviewers is in the file, and the header counts match the cards.
+**Done when** the change summary and every finding from all three reviewers are in the file, and the header counts match the cards.
 
 ## 4. Open it and summarise
 
-Run `open <path>`. Then reply in the chat with only this:
+Show the report where the user is working:
+
+- **Inside T3:** when this session has T3's `html_preview` and `html_render` tools (they can be deferred; load them with ToolSearch `select:mcp__t3-code__html_preview,mcp__t3-code__html_render`), pass the report file's full HTML to `html_preview`. Then pass the same HTML to `html_render`, with the title `Code review: <review target>` and `height` set to the `contentHeight` the preview returned, capped at 2000. The page sends about twice its size through the conversation, which is the cost of seeing it in the thread.
+- **Anywhere else:** run `open <path>`.
+
+The file on disk stays in both cases, so the user can still open it in a browser. Then reply in the chat with only this:
 
 ```
 <review target, one line>
@@ -86,4 +97,4 @@ Report: <path>
 
 Write "Blocking: none" when there are none.
 
-**Done when** the report is open and the reply holds the target line, the counts table, the blocking list and the report path.
+**Done when** the report is shown in the thread or open in the browser, and the reply holds the target line, the counts table, the blocking list and the report path.

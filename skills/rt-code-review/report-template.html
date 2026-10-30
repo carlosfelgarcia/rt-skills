@@ -1,8 +1,9 @@
 <!doctype html>
 <!--
   rt-code-review report template.
-  Replace every {{PLACEHOLDER}}. Replace each FINDINGS comment with one
-  <article class="finding"> per finding (copy the example card below), or with
+  Replace every {{PLACEHOLDER}}. Replace the CHANGE SUMMARY comment with the
+  change summary. Replace each FINDINGS comment with one <article class="finding">
+  per finding (copy the example card below), or with
   <p class="clean">No findings.</p> when the reviewer returned none.
 -->
 <html lang="en">
@@ -11,43 +12,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Code review: {{TARGET_TITLE}}</title>
 <style>
-  :root {
-    --bg: #f7f7f5; --card: #ffffff; --text: #1f2328; --muted: #656d76; --line: #d8dee4;
-    --blocking: #cf222e; --should-fix: #bf8700; --nit: #57606a;
-    --add-bg: #e6ffec; --del-bg: #ffebe9;
-  }
+  /* Colors follow the theme inside T3, and fall back to a light page in a browser */
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { margin: 0; background: #f7f7f5; color: var(--foreground, #1f2328);
+         font: 15px/1.55 var(--font-sans, system-ui, -apple-system, "Segoe UI", sans-serif); }
   main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  .in-t3 body { background: none; }
+  .in-t3 main { padding: 0 0 16px; }
   header h1 { margin: 0 0 4px; font-size: 22px; }
-  .meta { color: var(--muted); font-size: 13px; }
+  .meta { color: var(--muted-foreground, #656d76); font-size: 13px; }
   .meta code { font-size: 12px; }
-  table.counts { border-collapse: collapse; margin: 16px 0 8px; background: var(--card); }
-  table.counts th, table.counts td { border: 1px solid var(--line); padding: 6px 14px; text-align: center; }
+  table.counts { border-collapse: collapse; margin: 16px 0 8px; background: var(--card, #fff); }
+  table.counts th, table.counts td { border: 1px solid var(--border, #d8dee4); padding: 6px 14px; text-align: center; }
   table.counts th:first-child, table.counts td:first-child { text-align: left; }
-  nav a { margin-right: 14px; color: var(--text); }
-  section.reviewer { margin-top: 36px; }
-  section.reviewer h2 { font-size: 18px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
-  article.finding { background: var(--card); border: 1px solid var(--line);
-                    border-left: 5px solid var(--nit); border-radius: 6px; padding: 12px 16px; margin: 12px 0; }
-  article.finding.blocking { border-left-color: var(--blocking); }
-  article.finding.should-fix { border-left-color: var(--should-fix); }
+  a { color: inherit; }
+  section { margin-top: 36px; }
+  section h2 { font-size: 18px; border-bottom: 1px solid var(--border, #d8dee4); padding-bottom: 6px; }
+  section.summary h3 { margin: 20px 0 4px; font-size: 15px; }
+  section.summary h3 + p { margin: 0; color: var(--muted-foreground, #656d76); }
+  article.finding { background: var(--card, #fff); border: 1px solid var(--border, #d8dee4);
+                    border-left: 5px solid #8b949e; border-radius: var(--radius, 6px); padding: 12px 16px; margin: 12px 0; }
+  article.finding.blocking { border-left-color: var(--destructive, #cf222e); }
+  article.finding.should-fix { border-left-color: var(--warning, #bf8700); }
   article.finding h3 { margin: 0 0 8px; font-size: 16px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
   .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-           color: #fff; background: var(--nit); border-radius: 10px; padding: 2px 8px; }
-  .blocking .badge { background: var(--blocking); }
-  .should-fix .badge { background: var(--should-fix); }
+           color: #fff; background: #6e7781; border-radius: 10px; padding: 2px 8px; }
+  .blocking .badge { background: var(--destructive, #cf222e); }
+  .should-fix .badge { background: var(--warning, #bf8700); }
   dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; }
-  dt { font-weight: 600; color: var(--muted); }
+  dt { font-weight: 600; color: var(--muted-foreground, #656d76); }
   dd { margin: 0; min-width: 0; }
-  code, pre { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 13px; }
-  pre { margin: 6px 0 0; padding: 8px 10px; background: #f6f8fa; border: 1px solid var(--line);
-        border-radius: 4px; overflow-x: auto; }
-  pre.diff .add { background: var(--add-bg); display: inline-block; min-width: 100%; }
-  pre.diff .del { background: var(--del-bg); display: inline-block; min-width: 100%; }
-  .mermaid { margin-top: 10px; background: #fff; }
-  p.clean { color: var(--muted); font-style: italic; }
+  code, pre { font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace); font-size: 13px; }
+  pre { margin: 6px 0 0; padding: 8px 10px; background: var(--code-background, #f6f8fa);
+        border: 1px solid var(--border, #d8dee4); border-radius: 4px; overflow-x: auto; }
+  pre.diff .add { background: rgba(46, 160, 67, .18); display: inline-block; min-width: 100%; }
+  pre.diff .del { background: rgba(248, 81, 73, .18); display: inline-block; min-width: 100%; }
+  /* Mermaid's neutral theme draws dark lines, so diagrams keep a light box in a dark theme */
+  pre.mermaid { margin-top: 10px; padding: 16px; background: #fff; border: 0; border-radius: var(--radius, 6px); }
+  p.clean { color: var(--muted-foreground, #656d76); font-style: italic; }
   @media (max-width: 600px) { dl { grid-template-columns: 1fr; } dt { margin-top: 6px; } }
 </style>
 </head>
@@ -65,6 +67,12 @@
     <tr><td><a href="#qa">QA</a></td><td>{{QA_BLOCKING}}</td><td>{{QA_SHOULD_FIX}}</td><td>{{QA_NIT}}</td></tr>
   </table>
 </header>
+
+<section class="summary" id="summary">
+  <h2>Change summary</h2>
+  <!-- CHANGE SUMMARY: the overview as <p>, then per view:
+       <h3>title</h3><p>sentence</p><pre class="mermaid | diff">...</pre> (plain <pre> for other languages) -->
+</section>
 
 <section class="reviewer" id="architecture">
   <h2>Architecture reviewer</h2>
@@ -99,6 +107,11 @@
 -->
 </main>
 <script>
+  // Inside T3 the theme variables exist: the page then follows the thread's theme
+  // and drops its own background and side padding.
+  if (getComputedStyle(document.documentElement).getPropertyValue("--background").trim()) {
+    document.documentElement.classList.add("in-t3");
+  }
   document.querySelectorAll("pre.diff").forEach(function (pre) {
     pre.innerHTML = pre.innerHTML.split("\n").map(function (line) {
       if (line.startsWith("+")) return '<span class="add">' + line + "</span>";
