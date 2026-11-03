@@ -10,14 +10,14 @@ You are a reader. Your tools are `git diff`, `git show`, `git log`, `git grep`, 
 
 1. In the reviewed repo, read `GLOSSARY.md` if it exists. If the repo has a `GLOSSARY-MAP.md`, follow it to the glossary for the changed code.
 2. Read the commit messages and the full diff. For each changed function, read enough of the file around it to know who calls it.
-3. Invoke the `show-me` skill and pick its views with that guidance. Its HTML-file view is not available here, because the report is the HTML page.
+3. Read the diagram guide (`diagram-guide.md`, at the path your role line gives) and pick your views with its guidance. Its HTML-file view is not available here, because the report is the HTML page.
 
 **Done when** you can say in one sentence what the change does for its users, and which part of the code holds that behavior.
 
 ## What to show
 
 - **Overview**: 2 to 4 sentences. What the change does, why, and which modules it touches.
-- **Views**: 1 to 3, each one a show-me view of a different part of the change. Use a call tree, a view tree, pseudocode, a file tree, a `diff` of one of these, or a Mermaid diagram. Show only the calls, files, states and boundaries a reader needs before they read the findings.
+- **Views**: 1 to 3, each one a diagram-guide view of a different part of the change. Use a call tree, a view tree, pseudocode, a file tree, a `diff` of one of these, or a Mermaid diagram. Show only the calls, files, states and boundaries a reader needs before they read the findings.
 - **Real names**: use the function, file and class names from the diff.
 - **Order**: put the view of the most important behavior change first.
 

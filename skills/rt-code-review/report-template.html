@@ -1,7 +1,9 @@
 <!doctype html>
 <!--
   rt-code-review report template.
-  Replace every {{PLACEHOLDER}}. Replace the CHANGE SUMMARY comment with the
+  Replace every {{PLACEHOLDER}} outside the example card. {{STACK}} is the
+  target block's stack field, such as "pipeline (detected)", and
+  {{STACK_SETTINGS}} is its stack settings on one line. Replace the CHANGE SUMMARY comment with the
   change summary. Replace each FINDINGS comment with one <article class="finding">
   per finding (copy the example card below), or with
   <p class="clean">No findings.</p> when the reviewer returned none.
@@ -58,8 +60,9 @@
 <header>
   <h1>Code review: {{TARGET_TITLE}}</h1>
   <div class="meta">
-    {{REPO}} · {{MODE}} · base <code>{{BASE}}</code> · head <code>{{HEAD}}</code> · {{DATE}}
+    {{REPO}} · {{MODE}} · stack {{STACK}} · base <code>{{BASE}}</code> · head <code>{{HEAD}}</code> · {{DATE}}
   </div>
+  <div class="meta">Stack settings: {{STACK_SETTINGS}}</div>
   <table class="counts">
     <tr><th>Reviewer</th><th>Blocking</th><th>Should-fix</th><th>Nit</th></tr>
     <tr><td><a href="#architecture">Architecture</a></td><td>{{ARCH_BLOCKING}}</td><td>{{ARCH_SHOULD_FIX}}</td><td>{{ARCH_NIT}}</td></tr>
@@ -93,16 +96,16 @@
   Example finding card. Class is blocking | should-fix | nit.
 
   <article class="finding blocking">
-    <h3><span class="badge">Blocking</span> API token stored in UserDefaults</h3>
+    <h3><span class="badge">Blocking</span> {{FINDING_TITLE}}</h3>
     <dl>
-      <dt>Where</dt><dd><code>Sources/Sync/SyncClient.swift:8</code></dd>
+      <dt>Where</dt><dd><code>{{PATH}}:{{LINE}}</code></dd>
       <dt>What</dt><dd>...</dd>
       <dt>Why</dt><dd>...</dd>
-      <dt>Fix</dt><dd>...<pre class="diff">-    UserDefaults.standard.set(token, forKey: "apiToken")
-+    try keychain.save(token, for: .apiToken)</pre></dd>
+      <dt>Fix</dt><dd>...<pre class="diff">-    {{OLD_LINE}}
++    {{NEW_LINE}}</pre></dd>
     </dl>
     <pre class="mermaid">graph LR
-  SettingsView --> SyncStore --> APIClient</pre>
+  {{MODULE_A}} --> {{MODULE_B}} --> {{MODULE_C}}</pre>
   </article>
 -->
 </main>

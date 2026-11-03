@@ -3,12 +3,12 @@
   "owner": {
     "name": "Carlos Garcia"
   },
-  "description": "RationalBit agent skills, as an installable Claude Code plugin.",
+  "description": "Carlos Garcia's agent skills for RationalBit Swift apps and OD Studios pipeline packages, as an installable Claude Code plugin.",
   "plugins": [
     {
       "name": "rt-skills",
       "source": "./",
-      "description": "RationalBit agent skills."
+      "description": "Carlos Garcia's agent skills, for RationalBit Swift apps and OD Studios pipeline packages."
     }
   ]
 }

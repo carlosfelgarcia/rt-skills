@@ -44,7 +44,7 @@ Trace each input the change accepts through these values: empty, `nil`, zero, ne
 
 ## Concurrency (where the change touches it)
 
-Read the Swift settings in the target block first: default isolation and upcoming features change which rules apply.
+Read the stack settings in the target block first: default isolation and upcoming features change which rules apply.
 
 Blocking:
 - **Unprotected shared state**: mutable state reached from two isolation domains with no actor, `@MainActor` or `Mutex` in between, such as an `@unchecked Sendable` class with a `var` written from a `Task`.

@@ -1,6 +1,6 @@
 # RT Skills
 
-Agent skills for RationalBit projects, packaged as an installable Claude Code plugin.
+Agent skills for RationalBit Swift apps and OD Studios pipeline packages, packaged as an installable Claude Code plugin.
 
 ## Language
 

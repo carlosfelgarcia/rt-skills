@@ -1,65 +1,70 @@
 ---
 name: rt-code-review
-description: Review a change with an architecture reviewer, a test reviewer and a QA reviewer, then open an HTML report that starts with a visual summary of the change.
+description: Review a change in a Swift app or a pipeline package with an architecture reviewer, a test reviewer and a QA reviewer, using that stack's rules, then open an HTML report that starts with a visual summary of the change.
 disable-model-invocation: true
-argument-hint: "[PR number | ref]"
+argument-hint: "[PR number | ref] [stack]"
 ---
 
 # RT code review
 
-Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test. In the same batch, a change summariser writes the **change summary** that opens the report, so a reader knows what changed before they read a finding.
+Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test. In the same batch, a change summariser writes the **change summary** that opens the report, so a reader knows what changed before they read a finding. The reviewers apply the rule sets of the review target's **stack**; each stack is a folder in [`stacks/`](stacks/).
 
 ## 1. Resolve the review target
 
-Pick the mode from the argument:
+The arguments are an optional target (a PR number or a ref) and an optional stack. The **stacks** are the folder names in `stacks/`, such as `swift-app` and `pipeline`. A lone argument that is a stack name is the stack, not a ref. Check the arguments before you run anything else:
 
-| Argument | Mode | BASE | Diff command | Read a file | Search |
-|---|---|---|---|---|---|
-| A number | PR | `git fetch origin <baseRefName>` from `gh pr view <n> --json baseRefName,headRefName,title,url`, then `BASE=origin/<baseRefName>` | `git fetch origin pull/<n>/head`, `HEAD_SHA=$(git rev-parse FETCH_HEAD)`, then `git diff BASE...HEAD_SHA` | `git show HEAD_SHA:<path>` | `git grep -n <pattern> HEAD_SHA` |
-| A ref (branch, commit, tag) | Ref | `git rev-parse --verify <ref>^{commit}` | `git diff <ref>...HEAD` | `git show HEAD:<path>` | `git grep -n <pattern> HEAD` |
-| Nothing | Branch work | `git merge-base <default> HEAD`, where `<default>` is `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`, else `master` | `git diff BASE` plus the untracked files from `git ls-files --others --exclude-standard` | Read the working-tree file | `Grep` the working tree |
+- A second argument must be a stack name.
+- A lone argument must be a number, a stack name or a ref that `git rev-parse --verify` accepts.
+
+When an argument fails its check, stop. Tell the user in one sentence what is wrong, and list the stacks.
+
+Pick the mode from the target:
+
+| Target | Mode | BASE | Diff command | Read a file | Search | List files |
+|---|---|---|---|---|---|---|
+| A number | PR | `git fetch origin <baseRefName>` from `gh pr view <n> --json baseRefName,headRefName,title,url`, then `BASE=origin/<baseRefName>` | `git fetch origin pull/<n>/head`, `HEAD_SHA=$(git rev-parse FETCH_HEAD)`, then `git diff BASE...HEAD_SHA` | `git show HEAD_SHA:<path>` | `git grep -n <pattern> HEAD_SHA` | `git ls-tree -r --name-only HEAD_SHA` |
+| A ref (branch, commit, tag) | Ref | `git rev-parse --verify <ref>^{commit}` | `git diff <ref>...HEAD` | `git show HEAD:<path>` | `git grep -n <pattern> HEAD` | `git ls-tree -r --name-only HEAD` |
+| Nothing | Branch work | `git merge-base <default> HEAD`, where `<default>` is `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`, else `master` | `git diff BASE` plus the untracked files from `git ls-files --others --exclude-standard` | Read the working-tree file | `Grep` the working tree | `git ls-files` plus the untracked files |
 
 PR mode leaves the working tree alone: it fetches, it never checks out.
 
-Then read the **Swift settings** at the head, with the read-a-file command, from `Package.swift` and every `*.xcodeproj/project.pbxproj` that `git ls-files` lists:
+Then pick the stack:
 
-| Setting | `Package.swift` | `.pbxproj` |
-|---|---|---|
-| Language mode | `swiftLanguageModes`, `swiftLanguageVersions` or `-swift-version` | `SWIFT_VERSION` |
-| Strict concurrency | `StrictConcurrency` feature flag | `SWIFT_STRICT_CONCURRENCY` |
-| Default isolation | `.defaultIsolation(...)` | `SWIFT_DEFAULT_ACTOR_ISOLATION` |
-| Upcoming features | `.enableUpcomingFeature(...)` | `SWIFT_UPCOMING_FEATURE_*` |
+- **A stack argument** wins. Record it as `<stack> (argument)`.
+- **Otherwise detect it.** Read the `Markers` section of every `stacks/<stack>/stack.md` and check each against the head with the list-files command. When exactly one stack matches, record it as `<stack> (detected)`.
 
-Write `unknown` for a setting you cannot find; `// swift-tools-version:` is not a reliable proxy for the language mode. Where targets differ, list each target's values. With neither file in the repo, write `none`.
+  When no stack matches, or more than one matches, stop. Tell the user in one sentence which stacks matched, or that none did. Ask them to run the review again with the stack as an argument.
 
-Build the **target block** the reviewers receive: mode, repo root path, BASE, head (`HEAD_SHA`, `HEAD`, or "working tree"), diff command, read-a-file command, search command, Swift settings, commit list (`git log --oneline BASE..<head>`), changed files (`git diff --stat`), and untracked files (Branch work only).
+Then read the **stack settings** that the `Stack settings` section of `stacks/<stack>/stack.md` describes, at the head, with the read-a-file and list-files commands.
 
-**Done when** every field of the target block is filled. Stop here and tell the user why, in one sentence, if any command in the first table fails (an unknown ref, a `gh pr view` or `git fetch` error, no default branch), or if the diff and the untracked list are both empty.
+Build the **target block** the reviewers receive: mode, repo root path, BASE, head (`HEAD_SHA`, `HEAD`, or "working tree"), diff command, read-a-file command, search command, list-files command, stack, stack settings, commit list (`git log --oneline BASE..<head>`), changed files (`git diff --stat`), and untracked files (Branch work only).
+
+**Done when** every field of the target block is filled. Stop here and tell the user why, in one sentence, if any command in the table fails (an unknown ref, a `gh pr view` or `git fetch` error, no default branch), or if the diff and the untracked list are both empty.
 
 ## 2. Start the reviewers and the change summariser
 
 Send one message with four `Agent` calls, no model override: one per reviewer with `subagent_type: rt-skills:rt-reviewer`, and one for the change summariser with `subagent_type: rt-skills:rt-change-summariser`. Each agent's prompt has exactly three parts, in this order:
 
 1. The target block.
-2. **Role line**: "You are the <role>. Read `<this skill's base directory>/reviewer-brief.md` and `<this skill's base directory>/<role-file>`, then follow them."
+2. **Role line**: "You are the <role>. Read `<this skill's base directory>/reviewer-brief.md`, `<this skill's base directory>/stacks/<stack>/stack.md` and `<this skill's base directory>/stacks/<stack>/<rule-file>`, then follow them."
 3. **Return line**: "Return your findings in the shape the brief defines, and nothing else."
 
-| Role | Role file |
+| Role | Rule file |
 |---|---|
-| Architecture reviewer | `architecture-reviewer.md` |
-| Test reviewer | `test-reviewer.md` |
-| QA reviewer | `qa-reviewer.md` |
+| Architecture reviewer | `architecture.md` |
+| Test reviewer | `test.md` |
+| QA reviewer | `qa.md` |
 
 The change summariser gets the same target block, with a different role line and return line:
 
-- **Role line**: "You are the change summariser. Read `<this skill's base directory>/change-summariser.md`, then follow it."
+- **Role line**: "You are the change summariser. Read `<this skill's base directory>/change-summariser.md` and the diagram guide at `<this skill's base directory>/diagram-guide.md`, then follow them."
 - **Return line**: "Return the change summary in the shape the file defines, and nothing else."
 
 **Done when** all four agents have returned.
 
 ## 3. Build the HTML report
 
-Invoke the `show-me` skill for its diagram guidance. Then fill [`report-template.html`](report-template.html):
+Read [`diagram-guide.md`](diagram-guide.md) for its diagram guidance. Then fill [`report-template.html`](report-template.html):
 
 - The change summary goes into the `Change summary` section. The overview becomes `<p>` text. Each view becomes an `<h3>` title, a `<p>` sentence and a block chosen by its fence language: `mermaid` goes in a `<pre class="mermaid">`, `diff` goes in a `<pre class="diff">`, and every other language goes in a plain `<pre>`.
 - Each reviewer's findings go into that reviewer's section, in the order the reviewer returned them, with the reviewer's wording.
@@ -76,12 +81,12 @@ The report page is the only file this step writes; it is opened in step 4. Write
 Show the report where the user is working:
 
 - **Inside T3:** when this session has T3's `html_preview` and `html_render` tools (they can be deferred; load them with ToolSearch `select:mcp__t3-code__html_preview,mcp__t3-code__html_render`), pass the report file's full HTML to `html_preview`. Then pass the same HTML to `html_render`, with the title `Code review: <review target>` and `height` set to the `contentHeight` the preview returned, capped at 2000. The page sends about twice its size through the conversation, which is the cost of seeing it in the thread.
-- **Anywhere else:** run `open <path>`.
+- **Anywhere else:** only when the T3 tools are not in this session, open the file with the OS's opener. Run `uname -s`: on `Darwin` run `open <path>`; on `Linux` run `xdg-open <path> >/dev/null 2>&1 &`.
 
 The file on disk stays in both cases, so the user can still open it in a browser. Then reply in the chat with only this:
 
 ```
-<review target, one line>
+<review target, one line> · stack: <stack> (<detected | argument>)
 
 | Reviewer | Blocking | Should-fix | Nit |
 |---|---|---|---|
