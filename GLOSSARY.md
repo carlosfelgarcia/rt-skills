@@ -24,6 +24,10 @@ _Avoid_: scope, input
 The first section of a code review report: a short overview and up to three diagrams of what the review target changes. It judges nothing.
 _Avoid_: description, changelog
 
+**Stack**:
+The kind of codebase a review target belongs to, such as a Swift app or a pipeline package. It picks the rule sets the three reviewers apply.
+_Avoid_: language, platform, profile
+
 **Change summariser**:
 The agent that writes the change summary while the three reviewers work.
 _Avoid_: fourth reviewer, summary reviewer
