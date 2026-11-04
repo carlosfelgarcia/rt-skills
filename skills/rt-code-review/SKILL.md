@@ -1,13 +1,13 @@
 ---
 name: rt-code-review
-description: Review a change in a Swift app or a pipeline package with an architecture reviewer, a test reviewer and a QA reviewer, using that stack's rules, then open an HTML report that starts with a visual summary of the change.
+description: Review a change in a Swift app or a pipeline package with an architecture reviewer, a test reviewer and a QA reviewer, using that stack's rules, verify each finding, then open an HTML report that starts with a visual summary of the change.
 disable-model-invocation: true
 argument-hint: "[PR number | ref] [stack]"
 ---
 
 # RT code review
 
-Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test. In the same batch, a change summariser writes the **change summary** that opens the report, so a reader knows what changed before they read a finding. The reviewers apply the rule sets of the review target's **stack**; each stack is a folder in [`stacks/`](stacks/).
+Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test. In the same batch, a change summariser writes the **change summary** that opens the report, so a reader knows what changed before they read a finding. The reviewers apply the rule sets of the review target's **stack**; each stack is a folder in [`stacks/`](stacks/). Then a **verifier** checks each Blocking and Should-fix finding, so a reader sees which findings hold up, and can point at any of them by its **finding ID**.
 
 ## 1. Resolve the review target
 
@@ -62,21 +62,47 @@ The change summariser gets the same target block, with a different role line and
 
 **Done when** all four agents have returned.
 
-## 3. Build the HTML report
+## 3. Verify findings
+
+Collect every Blocking and Should-fix finding from the three reviewers. Nits are not verified. When there are none, go to step 4.
+
+Send one message with one `Agent` call per finding, however many there are, no model override, with `subagent_type: rt-skills:rt-verifier`. Each prompt has exactly four parts, in this order:
+
+1. The target block.
+2. **Role line**: "You are the verifier. Read `<this skill's base directory>/verifier-brief.md` and `<this skill's base directory>/stacks/<stack>/stack.md`, then follow them."
+3. **The finding**: the finding's block, exactly as the reviewer returned it.
+4. **Return line**: "Return your verdict in the shape the brief defines, and nothing else."
+
+Then apply each verdict to its finding:
+
+| Verdict | The finding |
+|---|---|
+| Confirmed | Stays as it is. |
+| Regraded | Moves to the new severity. Record the old severity, the reason and the evidence. |
+| Not worth fixing, Refuted | Becomes a **dismissed finding**. Record the verdict, the reason and the evidence. |
+
+A verifier `Fix` line replaces the reviewer's `Fix`; record that the fix was revised. When a verifier fails, or returns a block that is not in the brief's shape, start no second verifier: the finding stays as the reviewer wrote it and is marked **Unverified**.
+
+**Done when** every Blocking and Should-fix finding has a verdict or is marked Unverified.
+
+## 4. Build the HTML report
 
 Read [`diagram-guide.md`](diagram-guide.md) for its diagram guidance. Then fill [`report-template.html`](report-template.html):
 
 - The change summary goes into the `Change summary` section. The overview becomes `<p>` text. Each view becomes an `<h3>` title, a `<p>` sentence and a block chosen by its fence language: `mermaid` goes in a `<pre class="mermaid">`, `diff` goes in a `<pre class="diff">`, and every other language goes in a plain `<pre>`.
-- Each reviewer's findings go into that reviewer's section, in the order the reviewer returned them, with the reviewer's wording.
+- Each reviewer's findings go into that reviewer's section, with the reviewer's wording. Order the visible findings by their severity after step 3, Blocking first, and keep the reviewer's order within a severity. A finding that step 3 moved down to Nit stays, even past the brief's three-nit cap.
+- Dismissed findings go last in their reviewer's section, in one collapsed `<details class="dismissed">` block. Each one keeps its card at the reviewer's severity, with a `Verification` row for its verdict, reason and evidence. Its `Structure` stays text, because a diagram inside a closed block does not draw. When every finding in a section is dismissed, write the `No findings.` line above the block.
+- Every finding gets a **finding ID**: the lane letter (`A` for Architecture, `T` for Tests, `Q` for QA) and a number from 1, in the order the section shows them. The visible findings come first, then the dismissed findings carry on the same count. The ID goes in the card title, before the severity badge.
+- A Regraded card shows a `was <old severity>` tag and a `Verification` row with the verdict, reason and evidence. A card with a revised fix shows a `fix revised by verification` tag, and an Unverified card shows an `unverified` tag.
 - A finding with a `Structure` field gets a Mermaid `graph` drawn from it, in the finding card. A `Fix` with a `diff` block goes in a `<pre class="diff">`. Every other finding stays text.
 - HTML-escape all code, paths and diff text.
-- Delete the template's instructions comment and example card.
+- Delete the template's instructions comment, example card and example dismissed block.
 
-The report page is the only file this step writes; it is opened in step 4. Write it with one `Write` call to `/tmp/rt-code-review/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>.html`, with `/` in the branch name replaced by `-`.
+The report page is the only file this step writes; it is opened in step 5. Write it with one `Write` call to `/tmp/rt-code-review/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>.html`, with `/` in the branch name replaced by `-`.
 
-**Done when** the change summary and every finding from all three reviewers are in the file, and the header counts match the cards.
+**Done when** the change summary and every finding from all three reviewers, dismissed ones included, are in the file, every card has a unique finding ID, and the header counts match the cards: visible findings by severity, plus the dismissed count.
 
-## 4. Open it and summarise
+## 5. Open it and summarise
 
 Show the report where the user is working:
 
@@ -88,18 +114,18 @@ The file on disk stays in both cases, so the user can still open it in a browser
 ```
 <review target, one line> · stack: <stack> (<detected | argument>)
 
-| Reviewer | Blocking | Should-fix | Nit |
-|---|---|---|---|
-| Architecture | n | n | n |
-| Tests | n | n | n |
-| QA | n | n | n |
+| Reviewer | Blocking | Should-fix | Nit | Dismissed |
+|---|---|---|---|---|
+| Architecture | n | n | n | n |
+| Tests | n | n | n | n |
+| QA | n | n | n | n |
 
 Blocking:
-- [<reviewer>] `file:line`: <the finding's "What" sentence>
+- <finding ID> [<reviewer>] `file:line`: <the finding's "What" sentence>
 
 Report: <path>
 ```
 
-Write "Blocking: none" when there are none.
+The counts and the Blocking list use the severities after step 3, without dismissed findings. Write "Blocking: none" when there are none.
 
-**Done when** the report is shown in the thread or open in the browser, and the reply holds the target line, the counts table, the blocking list and the report path.
+**Done when** the report is shown in the thread or open in the browser, and the reply holds the target line, the counts table, the Blocking list with finding IDs, and the report path.

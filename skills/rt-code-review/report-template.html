@@ -5,8 +5,10 @@
   target block's stack field, such as "pipeline (detected)", and
   {{STACK_SETTINGS}} is its stack settings on one line. Replace the CHANGE SUMMARY comment with the
   change summary. Replace each FINDINGS comment with one <article class="finding">
-  per finding (copy the example card below), or with
-  <p class="clean">No findings.</p> when the reviewer returned none.
+  per visible finding (copy the example card below), then one
+  <details class="dismissed"> block holding the dismissed findings' cards (copy
+  the example below). Write <p class="clean">No findings.</p> when no visible
+  finding is left, and leave out the <details> block when nothing was dismissed.
 -->
 <html lang="en">
 <head>
@@ -41,6 +43,14 @@
            color: #fff; background: #6e7781; border-radius: 10px; padding: 2px 8px; }
   .blocking .badge { background: var(--destructive, #cf222e); }
   .should-fix .badge { background: var(--warning, #bf8700); }
+  .id { font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace); font-size: 13px; font-weight: 700;
+        color: var(--muted-foreground, #656d76); }
+  .tag { font-size: 11px; font-weight: 600; color: var(--muted-foreground, #656d76);
+         border: 1px solid var(--border, #d8dee4); border-radius: 10px; padding: 1px 7px; }
+  details.dismissed { margin: 16px 0; }
+  details.dismissed summary { cursor: pointer; color: var(--muted-foreground, #656d76); font-weight: 600; }
+  details.dismissed article.finding { opacity: .75; border-left-color: #8b949e; }
+  details.dismissed .badge { background: #6e7781; }
   dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; }
   dt { font-weight: 600; color: var(--muted-foreground, #656d76); }
   dd { margin: 0; min-width: 0; }
@@ -64,10 +74,10 @@
   </div>
   <div class="meta">Stack settings: {{STACK_SETTINGS}}</div>
   <table class="counts">
-    <tr><th>Reviewer</th><th>Blocking</th><th>Should-fix</th><th>Nit</th></tr>
-    <tr><td><a href="#architecture">Architecture</a></td><td>{{ARCH_BLOCKING}}</td><td>{{ARCH_SHOULD_FIX}}</td><td>{{ARCH_NIT}}</td></tr>
-    <tr><td><a href="#tests">Tests</a></td><td>{{TEST_BLOCKING}}</td><td>{{TEST_SHOULD_FIX}}</td><td>{{TEST_NIT}}</td></tr>
-    <tr><td><a href="#qa">QA</a></td><td>{{QA_BLOCKING}}</td><td>{{QA_SHOULD_FIX}}</td><td>{{QA_NIT}}</td></tr>
+    <tr><th>Reviewer</th><th>Blocking</th><th>Should-fix</th><th>Nit</th><th>Dismissed</th></tr>
+    <tr><td><a href="#architecture">Architecture</a></td><td>{{ARCH_BLOCKING}}</td><td>{{ARCH_SHOULD_FIX}}</td><td>{{ARCH_NIT}}</td><td>{{ARCH_DISMISSED}}</td></tr>
+    <tr><td><a href="#tests">Tests</a></td><td>{{TEST_BLOCKING}}</td><td>{{TEST_SHOULD_FIX}}</td><td>{{TEST_NIT}}</td><td>{{TEST_DISMISSED}}</td></tr>
+    <tr><td><a href="#qa">QA</a></td><td>{{QA_BLOCKING}}</td><td>{{QA_SHOULD_FIX}}</td><td>{{QA_NIT}}</td><td>{{QA_DISMISSED}}</td></tr>
   </table>
 </header>
 
@@ -93,20 +103,33 @@
 </section>
 
 <!--
-  Example finding card. Class is blocking | should-fix | nit.
+  Example finding card. Class is blocking | should-fix | nit. The tags are
+  optional: "was <old severity>" for a Regraded finding, "fix revised by verification" when the
+  verifier replaced the fix, "unverified" when its verifier failed. The
+  Verification row is only for a Regraded or dismissed finding.
 
   <article class="finding blocking">
-    <h3><span class="badge">Blocking</span> {{FINDING_TITLE}}</h3>
+    <h3><span class="id">{{FINDING_ID}}</span> <span class="badge">Blocking</span> {{FINDING_TITLE}}
+        <span class="tag">was Should-fix</span> <span class="tag">fix revised by verification</span></h3>
     <dl>
       <dt>Where</dt><dd><code>{{PATH}}:{{LINE}}</code></dd>
       <dt>What</dt><dd>...</dd>
       <dt>Why</dt><dd>...</dd>
       <dt>Fix</dt><dd>...<pre class="diff">-    {{OLD_LINE}}
 +    {{NEW_LINE}}</pre></dd>
+      <dt>Verification</dt><dd>{{VERDICT}}: {{REASON}}<pre>{{EVIDENCE}}</pre></dd>
     </dl>
     <pre class="mermaid">graph LR
   {{MODULE_A}} --> {{MODULE_B}} --> {{MODULE_C}}</pre>
   </article>
+
+  Example dismissed block. Each card keeps the reviewer's severity in its class
+  and badge, and its Verification row gives the verdict, reason and evidence.
+
+  <details class="dismissed">
+    <summary>Dismissed by verification ({{COUNT}})</summary>
+    <article class="finding should-fix">...</article>
+  </details>
 -->
 </main>
 <script>
