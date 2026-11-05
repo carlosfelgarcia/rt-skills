@@ -7,7 +7,7 @@ argument-hint: "[PR number | ref] [stack]"
 
 # RT code review
 
-Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test. In the same batch, a change summariser writes the **change summary** that opens the report, so a reader knows what changed before they read a finding. The reviewers apply the rule sets of the review target's **stack**; each stack is a folder in [`stacks/`](stacks/). Then a **verifier** checks each Blocking and Should-fix finding, so a reader sees which findings hold up, and can point at any of them by its **finding ID**.
+Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test. In the same batch, a change summariser writes the **change summary** that opens the report, so a reader knows what changed before they read a finding. The reviewers apply the rule sets of the review target's **stack**; each stack is a folder in [`stacks/`](stacks/). Then a **verifier** checks every finding, Nits included, so the report shows only findings that hold up and are worth fixing, and a reader can point at any of them by its **finding ID**.
 
 ## 1. Resolve the review target
 
@@ -64,7 +64,7 @@ The change summariser gets the same target block, with a different role line and
 
 ## 3. Verify findings
 
-Collect every Blocking and Should-fix finding from the three reviewers. Nits are not verified. When there are none, go to step 4.
+Collect every finding from the three reviewers, and give each its **finding ID**: the lane letter (`A` for Architecture, `T` for Tests, `Q` for QA) and a number from 1, in the order the reviewer returned them. The ID stays with the finding from here on, in chat and in the report. When there are no findings, go to step 4.
 
 Send one message with one `Agent` call per finding, however many there are, no model override, with `subagent_type: rt-skills:rt-verifier`. Each prompt has exactly four parts, in this order:
 
@@ -80,10 +80,23 @@ Then apply each verdict to its finding:
 | Confirmed | Stays as it is. |
 | Regraded | Moves to the new severity. Record the old severity, the reason and the evidence. |
 | Not worth fixing, Refuted | Becomes a **dismissed finding**. Record the verdict, the reason and the evidence. |
+| Unproven | Goes to its **host probe**, below. |
 
 A verifier `Fix` line replaces the reviewer's `Fix`; record that the fix was revised. When a verifier fails, or returns a block that is not in the brief's shape, start no second verifier: the finding stays as the reviewer wrote it and is marked **Unverified**.
 
-**Done when** every Blocking and Should-fix finding has a verdict or is marked Unverified.
+### Host probes
+
+An Unproven finding's probe runs only when `stacks/<stack>/stack.md` has a `Host probes` section, and only when the probe keeps that section's limits. Check each probe against those limits before you run it. Then, one probe at a time, write it to `/tmp/rt-code-review/probes/<finding ID>.<ext>` and run it as that section says. Compare each run's output with the verdict's `Expect` line:
+
+| Probe result | The finding |
+|---|---|
+| A run prints what `Expect` says | Confirmed. The evidence is the command and its output. |
+| Every run prints something else | Refuted, so dismissed. The evidence is each command and its output. |
+| The probe breaks the limits, errors before it reaches the claim, or times out | Stays **Unproven**. Record the reason, the probe and `Expect`. |
+
+Only compare the output with `Expect`; the verdict is the probe's, not yours.
+
+**Done when** every finding has a verdict, is marked Unverified, or is Unproven with a recorded reason its probe did not settle it.
 
 ## 4. Build the HTML report
 
@@ -92,8 +105,8 @@ Read [`diagram-guide.md`](diagram-guide.md) for its diagram guidance. Then fill 
 - The change summary goes into the `Change summary` section. The overview becomes `<p>` text. Each view becomes an `<h3>` title, a `<p>` sentence and a block chosen by its fence language: `mermaid` goes in a `<pre class="mermaid">`, `diff` goes in a `<pre class="diff">`, and every other language goes in a plain `<pre>`.
 - Each reviewer's findings go into that reviewer's section, with the reviewer's wording. Order the visible findings by their severity after step 3, Blocking first, and keep the reviewer's order within a severity. A finding that step 3 moved down to Nit stays, even past the brief's three-nit cap.
 - Dismissed findings go last in their reviewer's section, in one collapsed `<details class="dismissed">` block. Each one keeps its card at the reviewer's severity, with a `Verification` row for its verdict, reason and evidence. Its `Structure` stays text, because a diagram inside a closed block does not draw. When every finding in a section is dismissed, write the `No findings.` line above the block.
-- Every finding gets a **finding ID**: the lane letter (`A` for Architecture, `T` for Tests, `Q` for QA) and a number from 1, in the order the section shows them. The visible findings come first, then the dismissed findings carry on the same count. The ID goes in the card title, before the severity badge.
-- A Regraded card shows a `was <old severity>` tag and a `Verification` row with the verdict, reason and evidence. A card with a revised fix shows a `fix revised by verification` tag, and an Unverified card shows an `unverified` tag.
+- Each card keeps the finding ID that step 3 gave it, in the card title, before the severity badge. The order by severity can put IDs out of sequence; leave them so.
+- A Regraded card shows a `was <old severity>` tag and a `Verification` row with the verdict, reason and evidence. A card with a revised fix shows a `fix revised by verification` tag, and an Unverified card shows an `unverified` tag. An Unproven card stays visible at the reviewer's severity with an `unproven` tag and a `Verification` row holding the reason, the probe and `Expect`. A card that a probe settled shows the probe's command and output in its `Verification` row.
 - A finding with a `Structure` field gets a Mermaid `graph` drawn from it, in the finding card. A `Fix` with a `diff` block goes in a `<pre class="diff">`. Every other finding stays text.
 - HTML-escape all code, paths and diff text.
 - Delete the template's instructions comment, example card and example dismissed block.
@@ -106,8 +119,8 @@ The report page is the only file this step writes; it is opened in step 5. Write
 
 Show the report where the user is working:
 
-- **Inside T3:** when this session has T3's `html_preview` and `html_render` tools (they can be deferred; load them with ToolSearch `select:mcp__t3-code__html_preview,mcp__t3-code__html_render`), pass the report file's full HTML to `html_preview`. Then pass the same HTML to `html_render`, with the title `Code review: <review target>` and `height` set to the `contentHeight` the preview returned, capped at 2000. The page sends about twice its size through the conversation, which is the cost of seeing it in the thread.
-- **Anywhere else:** only when the T3 tools are not in this session, open the file with the OS's opener. Run `uname -s`: on `Darwin` run `open <path>`; on `Linux` run `xdg-open <path> >/dev/null 2>&1 &`.
+- **Inside T3:** when this session has T3's `html_render` tool (it can be deferred; load it with ToolSearch `select:mcp__t3-code__html_render`), pass the report file's full HTML to `html_render` once, with the title `Code review: <review target>` and `height: 2000`. A report is nearly always taller than 2000, so a preview call to measure it only sends the page twice.
+- **Anywhere else:** only when the T3 tool is not in this session, open the file with the OS's opener. Run `uname -s`: on `Darwin` run `open <path>`; on `Linux` run `xdg-open <path> >/dev/null 2>&1 &`.
 
 The file on disk stays in both cases, so the user can still open it in a browser. Then reply in the chat with only this:
 

@@ -1,6 +1,6 @@
 ---
 name: rt-verifier
-description: Read-only agent that the rt-code-review skill starts once per Blocking or Should-fix finding, to check that the finding holds.
+description: Read-only agent that the rt-code-review skill starts once per finding, to check that the finding holds.
 tools: Read, Grep, Glob, Bash
 ---
 

@@ -105,8 +105,9 @@
 <!--
   Example finding card. Class is blocking | should-fix | nit. The tags are
   optional: "was <old severity>" for a Regraded finding, "fix revised by verification" when the
-  verifier replaced the fix, "unverified" when its verifier failed. The
-  Verification row is only for a Regraded or dismissed finding.
+  verifier replaced the fix, "unverified" when its verifier failed, "unproven" when
+  no host probe settled it. The Verification row is only for a Regraded, dismissed,
+  Unproven or probe-settled finding.
 
   <article class="finding blocking">
     <h3><span class="id">{{FINDING_ID}}</span> <span class="badge">Blocking</span> {{FINDING_TITLE}}

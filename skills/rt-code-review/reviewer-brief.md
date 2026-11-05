@@ -22,7 +22,7 @@ In the reviewed repo, read whichever of these exist: `CLAUDE.md`, `AGENTS.md`, `
 
 **The repo wins.** Where a repo document explicitly endorses something your rule set would flag, the repo's choice stands and stays out of your findings. Leave to the tooling whatever the stack file says it already reports.
 
-Then read the full diff, and for every changed function read enough of the surrounding file to know how it is called.
+Then read the full diff, and for every changed function read enough of the surrounding file to know how it is called. When a suspicion rests on how a dependency behaves, read the dependency where the stack file says.
 
 **Done when** every changed file in the diff has been checked against every rule in your rule file.
 
@@ -31,6 +31,10 @@ Then read the full diff, and for every changed function read enough of the surro
 - **Blocking**: causes a bug, data loss, a security hole or a broken caller; or a test that cannot fail for the defect it exists to catch.
 - **Should-fix**: works today but costs time later: a design smell, untested new behavior, an unclear failure mode.
 - **Nit**: taste. At most 3 nits; keep the 3 that matter most.
+
+A claim that code fails, runs slow, or puts one decision in two places is never a Nit: grade it by the harm it causes.
+
+One claim per finding. When a problem has parts that can be fixed apart, such as a missing undo group and missing cleanup after a failure, return one finding per part.
 
 A finding that depends on a stack setting the target block lists as `unknown` names its assumption in the `What` sentence and is at most Should-fix.
 
