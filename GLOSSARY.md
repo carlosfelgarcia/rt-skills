@@ -33,15 +33,15 @@ The agent that writes the change summary while the three reviewers work.
 _Avoid_: fourth reviewer, summary reviewer
 
 **Verifier**:
-The agent that checks one finding, of any severity, after the reviewers return, and gives it a verdict.
+The agent that checks one finding, of any severity, and gives it a verdict.
 _Avoid_: checker, validator, second reviewer
 
 **Verdict**:
-A verifier's judgement of one finding: **Confirmed** (the issue exists and its severity is right), **Regraded** (the issue exists at a different severity), **Not worth fixing** (the issue exists, but the repo endorses it, the tooling reports it, the fix costs more than it saves, or it is in code the change does not touch or worsen) **Refuted** (the issue does not exist) or **Unproven** (the claim rests on runtime behaviour the code does not show, so it goes to a host probe).
+A verifier's judgement of one finding: **Confirmed** (the issue exists and its severity is right; **Proven** when the evidence shows it, **Not proven** when the verifier could not prove it either way), **Regraded** (the issue exists at a different severity), **Not worth fixing** (the issue exists, but the repo endorses it, the tooling reports it, the fix costs more than it saves, or it is in code the change does not touch or worsen) **Refuted** (the issue does not exist) or **Unproven** (the claim rests on runtime behaviour the code does not show, so it goes to a host probe).
 _Avoid_: result, outcome
 
 **Dismissed finding**:
-A finding whose verdict is Not worth fixing or Refuted. The report keeps it, collapsed, with the verifier's reason.
+A finding whose verdict is Not worth fixing or Refuted, or a bot finding that repeats a dismissed, held or open finding from an earlier review. The report keeps a dismissed finding that has a verdict, collapsed, with the verifier's reason.
 _Avoid_: rejected finding, false positive
 
 **Unverified finding**:
@@ -53,8 +53,40 @@ The smallest script that shows how a host, library or tool behaves at runtime, w
 _Avoid_: test, repro, experiment
 
 **Finding ID**:
-The lane letter and number that names one finding within one report, such as `Q2`. It is given when the findings are collected, before verification, and never changes.
+The lane letter and number that names one finding within one report, such as `Q2`, or `B` and a number for a bot finding. It is given when the findings are collected, before verification, and never changes.
 _Avoid_: finding number, key
+
+**Findings file**:
+The record a code review leaves next to its report: the review target and every finding with its ID, verdict and fix. It is what a later step reads, because the report is written for people.
+_Avoid_: findings export, report data
+
+**Bot finding**:
+A finding that a GitHub bot raised and the user passes in by hand. It has no verdict until a verifier gives it one.
+_Avoid_: bot comment, external finding
+
+**Manual check**:
+Something a bot asks for that only a person can do, such as a device test or a deployment. It is not a finding, so it gets no verdict.
+_Avoid_: to-do, follow-up
+
+**Fix context**:
+What the reviewers of a later review receive about earlier fixes: how each finding was fixed, or why it was not. Verifiers never receive it.
+_Avoid_: fix notes, review hints
+
+**Fix run**:
+One pass of fixing a single set of findings: the findings of one report, or one set of bot findings. It ends with one re-review at most.
+_Avoid_: fix pass, fix loop
+
+**Re-review**:
+The one code review at the end of a fix run, with a fix context.
+_Avoid_: second review, follow-up review
+
+**Held finding**:
+A finding a fix run leaves for the user: Confirmed but Not proven, Unproven, Unverified, one whose fix needs more than the finding describes, or an open finding that a bot run did not handle. Unlike a dismissed finding, it may still be real.
+_Avoid_: skipped finding, deferred finding
+
+**Open finding**:
+A finding a review reported and did not dismiss, which no fix run has handled yet.
+_Avoid_: pending finding, unfixed finding
 
 ### Severity
 

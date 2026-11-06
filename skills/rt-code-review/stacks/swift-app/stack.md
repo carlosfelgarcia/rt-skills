@@ -21,7 +21,11 @@ Write `unknown` for a setting you cannot find; `// swift-tools-version:` is not 
 
 ## Why the code never runs
 
-Do not run `swift build`, `swift test`, `xcodebuild`, a simulator or any script. A build takes minutes, needs a simulator, and three reviewers running at once fight over DerivedData and simulators. CI runs the tests.
+Do not run `swift build`, `swift test`, `xcodebuild`, a simulator or any script. A build takes minutes, needs a simulator, and three reviewers running at once fight over DerivedData and simulators. CI runs the tests. The one exception is the `Fix checks` section, for the main session alone.
+
+## Fix checks
+
+After the last fix of an `rt-fix-findings` run, one session has the machine, so run one build and test pass. Use the test command that the repo documents. Without one, run `swift test` for a `Package.swift`, or `xcodebuild test` with the scheme from `xcodebuild -list` and an available simulator for an Xcode project. A tool that is not installed, as on a Linux machine, is a check that did not run.
 
 ## What the tooling already reports
 

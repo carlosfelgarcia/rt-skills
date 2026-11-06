@@ -43,7 +43,7 @@ Build the **target block** the reviewers receive: mode, repo root path, BASE, he
 
 ## 2. Start the reviewers and the change summariser
 
-Send one message with four `Agent` calls, no model override: one per reviewer with `subagent_type: rt-skills:rt-reviewer`, and one for the change summariser with `subagent_type: rt-skills:rt-change-summariser`. Each agent's prompt has exactly three parts, in this order:
+Send one message with four `Agent` calls, no model override: one per reviewer with `subagent_type: rt-skills:rt-reviewer`, and one for the change summariser with `subagent_type: rt-skills:rt-change-summariser`. Each agent's prompt has exactly three parts, in this order, or four with a fix context (below):
 
 1. The target block.
 2. **Role line**: "You are the <role>. Read `<this skill's base directory>/reviewer-brief.md`, `<this skill's base directory>/stacks/<stack>/stack.md` and `<this skill's base directory>/stacks/<stack>/<rule-file>`, then follow them."
@@ -60,6 +60,8 @@ The change summariser gets the same target block, with a different role line and
 - **Role line**: "You are the change summariser. Read `<this skill's base directory>/change-summariser.md` and the diagram guide at `<this skill's base directory>/diagram-guide.md`, then follow them."
 - **Return line**: "Return the change summary in the shape the file defines, and nothing else."
 
+When `rt-fix-findings` starts this review with a **fix context**, each reviewer's prompt gains it as a fourth part, between the role line and the return line. The change summariser's prompt stays as it is.
+
 **Done when** all four agents have returned.
 
 ## 3. Verify findings
@@ -73,11 +75,13 @@ Send one message with one `Agent` call per finding, however many there are, no m
 3. **The finding**: the finding's block, exactly as the reviewer returned it.
 4. **Return line**: "Return your verdict in the shape the brief defines, and nothing else."
 
+A fix context stays out of these prompts, so each verdict comes from the code alone.
+
 Then apply each verdict to its finding:
 
 | Verdict | The finding |
 |---|---|
-| Confirmed | Stays as it is. |
+| Confirmed | Stays as it is. Record its `Proof`: Proven or Not proven. |
 | Regraded | Moves to the new severity. Record the old severity, the reason and the evidence. |
 | Not worth fixing, Refuted | Becomes a **dismissed finding**. Record the verdict, the reason and the evidence. |
 | Unproven | Goes to its **host probe**, below. |
@@ -90,7 +94,7 @@ An Unproven finding's probe runs only when `stacks/<stack>/stack.md` has a `Host
 
 | Probe result | The finding |
 |---|---|
-| A run prints what `Expect` says | Confirmed. The evidence is the command and its output. |
+| A run prints what `Expect` says | Confirmed and Proven. The evidence is the command and its output. |
 | Every run prints something else | Refuted, so dismissed. The evidence is each command and its output. |
 | The probe breaks the limits, errors before it reaches the claim, or times out | Stays **Unproven**. Record the reason, the probe and `Expect`. |
 
@@ -106,14 +110,15 @@ Read [`diagram-guide.md`](diagram-guide.md) for its diagram guidance. Then fill 
 - Each reviewer's findings go into that reviewer's section, with the reviewer's wording. Order the visible findings by their severity after step 3, Blocking first, and keep the reviewer's order within a severity. A finding that step 3 moved down to Nit stays, even past the brief's three-nit cap.
 - Dismissed findings go last in their reviewer's section, in one collapsed `<details class="dismissed">` block. Each one keeps its card at the reviewer's severity, with a `Verification` row for its verdict, reason and evidence. Its `Structure` stays text, because a diagram inside a closed block does not draw. When every finding in a section is dismissed, write the `No findings.` line above the block.
 - Each card keeps the finding ID that step 3 gave it, in the card title, before the severity badge. The order by severity can put IDs out of sequence; leave them so.
-- A Regraded card shows a `was <old severity>` tag and a `Verification` row with the verdict, reason and evidence. A card with a revised fix shows a `fix revised by verification` tag, and an Unverified card shows an `unverified` tag. An Unproven card stays visible at the reviewer's severity with an `unproven` tag and a `Verification` row holding the reason, the probe and `Expect`. A card that a probe settled shows the probe's command and output in its `Verification` row.
+- A Regraded card shows a `was <old severity>` tag and a `Verification` row with the verdict, reason and evidence. A card with a revised fix shows a `fix revised by verification` tag, a Confirmed card that is Not proven shows a `not proven` tag, and an Unverified card shows an `unverified` tag. An Unproven card stays visible at the reviewer's severity with an `unproven` tag and a `Verification` row holding the reason, the probe and `Expect`. A card that a probe settled shows the probe's command and output in its `Verification` row.
 - A finding with a `Structure` field gets a Mermaid `graph` drawn from it, in the finding card. A `Fix` with a `diff` block goes in a `<pre class="diff">`. Every other finding stays text.
+- With a fix context, the `Earlier findings` section gets one table row per fix context row. With none, delete the section.
 - HTML-escape all code, paths and diff text.
 - Delete the template's instructions comment, example card and example dismissed block.
 
-The report page is the only file this step writes; it is opened in step 5. Write it with one `Write` call to `/tmp/rt-code-review/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>.html`, with `/` in the branch name replaced by `-`.
+This step writes two files. Write the report page, which step 5 opens, with one `Write` call to `/tmp/rt-code-review/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>.html`, with `/` in the branch name replaced by `-`. Then write the **findings file** next to it, in the shape [`findings-file.md`](findings-file.md) defines.
 
-**Done when** the change summary and every finding from all three reviewers, dismissed ones included, are in the file, every card has a unique finding ID, and the header counts match the cards: visible findings by severity, plus the dismissed count.
+**Done when** the change summary and every finding from all three reviewers, dismissed ones included, are in the report, every card has a unique finding ID, the header counts match the cards (visible findings by severity, plus the dismissed count), and the findings file holds every finding.
 
 ## 5. Open it and summarise
 
@@ -122,7 +127,7 @@ Show the report where the user is working:
 - **Inside T3:** when this session has T3's `html_render` tool (it can be deferred; load it with ToolSearch `select:mcp__t3-code__html_render`), pass the report file's full HTML to `html_render` once, with the title `Code review: <review target>` and `height: 2000`. A report is nearly always taller than 2000, so a preview call to measure it only sends the page twice.
 - **Anywhere else:** only when the T3 tool is not in this session, open the file with the OS's opener. Run `uname -s`: on `Darwin` run `open <path>`; on `Linux` run `xdg-open <path> >/dev/null 2>&1 &`.
 
-The file on disk stays in both cases, so the user can still open it in a browser. Then reply in the chat with only this:
+The file on disk stays in both cases, so the user can still open it in a browser. When `rt-fix-findings` started this review, stop here: its summary is the reply. Otherwise reply in the chat with only this:
 
 ```
 <review target, one line> · stack: <stack> (<detected | argument>)
@@ -141,4 +146,4 @@ Report: <path>
 
 The counts and the Blocking list use the severities after step 3, without dismissed findings. Write "Blocking: none" when there are none.
 
-**Done when** the report is shown in the thread or open in the browser, and the reply holds the target line, the counts table, the Blocking list with finding IDs, and the report path.
+**Done when** the report is shown in the thread or open in the browser, and, unless `rt-fix-findings` started this review, the reply holds the target line, the counts table, the Blocking list with finding IDs, and the report path.

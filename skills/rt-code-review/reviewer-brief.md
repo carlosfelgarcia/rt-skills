@@ -1,6 +1,6 @@
 # Reviewer brief
 
-Shared rules for the three `rt-code-review` reviewers. The target block names the **stack**. Your stack file (`stack.md`) adds what is particular to that stack, and your rule file adds your lane's rule set for it. Where the stack file and this brief differ, the stack file wins. Skip its `Markers` and `Stack settings` sections: the target block already holds their result.
+Shared rules for the three `rt-code-review` reviewers. The target block names the **stack**. Your stack file (`stack.md`) adds what is particular to that stack, and your rule file adds your lane's rule set for it. Where the stack file and this brief differ, the stack file wins. Skip its `Fix checks` section, which is for `rt-fix-findings`, and its `Markers` and `Stack settings` sections: the target block already holds their result.
 
 ## Lanes
 
@@ -25,6 +25,13 @@ In the reviewed repo, read whichever of these exist: `CLAUDE.md`, `AGENTS.md`, `
 Then read the full diff, and for every changed function read enough of the surrounding file to know how it is called. When a suspicion rests on how a dependency behaves, read the dependency where the stack file says.
 
 **Done when** every changed file in the diff has been checked against every rule in your rule file.
+
+## Fix context
+
+Your prompt can hold a **fix context**: a table of earlier findings and what became of them. It tells you what a fix run already decided, and you judge only your lane.
+
+- **Fixed**: read the commit. Raise a finding when the fix does not solve the earlier finding, or breaks something.
+- **Dismissed, Held**: report it only when a fix changed the reason in its row, and name that change in `What`.
 
 ## Severity
 

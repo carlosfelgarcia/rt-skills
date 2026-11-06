@@ -20,7 +20,7 @@ Write `none` for DCC hosts or for linters when there are none. Write `unknown` f
 
 ## Why the code never runs
 
-Pipeline code can reach ShotGrid, the farm or production paths, even from a test or a scratch directory. Do not run `python`, `pytest`, `rez env`, `rez build` or any script from the repo. The one exception is a host probe, which only the main session runs.
+Pipeline code can reach ShotGrid, the farm or production paths, even from a test or a scratch directory. Do not run `python`, `pytest`, `rez env`, `rez build` or any script from the repo. The one exception is a host probe, which only the main session runs. This holds for `rt-fix-findings` too.
 
 ## Dependencies
 
@@ -31,6 +31,10 @@ When a claim rests on how a package in `requires` behaves, read its released sou
 A probe settles how a DCC host behaves at runtime. It imports only the host's own modules (`hou`, `pxr`, `maya`, `nuke`) and the standard library, reads and writes nothing outside `/tmp`, and builds its scene from scratch. It never imports the repo or a package from `requires` other than the host.
 
 Run it with the host's batch interpreter (`hython` for Houdini, `mayapy` for Maya, `nuke -t` for Nuke) in a rez env of the host alone, once per major version in the DCC hosts range: for `houdini-21+<23`, run `timeout 300 rez env "houdini-21+<22" -- hython <probe>`, then the same with `"houdini-22+<23"`. Run probes one at a time: each one takes a host license.
+
+## Fix checks
+
+After the last fix of an `rt-fix-findings` run, run each linter and type checker in the stack settings on the files the fixes changed, with the repo's config. These read the code and execute none of it. A tool that is not installed is a check that did not run. Tests stay unrun: the summary says so.
 
 ## What the tooling already reports
 

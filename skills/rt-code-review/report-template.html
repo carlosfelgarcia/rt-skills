@@ -9,6 +9,8 @@
   <details class="dismissed"> block holding the dismissed findings' cards (copy
   the example below). Write <p class="clean">No findings.</p> when no visible
   finding is left, and leave out the <details> block when nothing was dismissed.
+  Replace the EARLIER FINDINGS comment with one table row per fix context row,
+  or delete that section when the review has no fix context.
 -->
 <html lang="en">
 <head>
@@ -47,6 +49,8 @@
         color: var(--muted-foreground, #656d76); }
   .tag { font-size: 11px; font-weight: 600; color: var(--muted-foreground, #656d76);
          border: 1px solid var(--border, #d8dee4); border-radius: 10px; padding: 1px 7px; }
+  table.earlier { border-collapse: collapse; width: 100%; background: var(--card, #fff); }
+  table.earlier th, table.earlier td { border: 1px solid var(--border, #d8dee4); padding: 6px 10px; text-align: left; vertical-align: top; }
   details.dismissed { margin: 16px 0; }
   details.dismissed summary { cursor: pointer; color: var(--muted-foreground, #656d76); font-weight: 600; }
   details.dismissed article.finding { opacity: .75; border-left-color: #8b949e; }
@@ -102,11 +106,20 @@
   <!-- FINDINGS: qa -->
 </section>
 
+<section id="earlier">
+  <h2>Earlier findings</h2>
+  <table class="earlier">
+    <tr><th>Run</th><th>Finding</th><th>Where</th><th>What</th><th>Outcome</th><th>Commit or reason</th></tr>
+    <!-- EARLIER FINDINGS: <tr><td>{{RUN}}</td><td>{{FINDING_ID}}</td><td><code>{{PATH}}:{{LINE}}</code></td><td>...</td><td>Fixed | Dismissed | Held</td><td>...</td></tr> -->
+  </table>
+</section>
+
 <!--
   Example finding card. Class is blocking | should-fix | nit. The tags are
   optional: "was <old severity>" for a Regraded finding, "fix revised by verification" when the
-  verifier replaced the fix, "unverified" when its verifier failed, "unproven" when
-  no host probe settled it. The Verification row is only for a Regraded, dismissed,
+  verifier replaced the fix, "not proven" for a Confirmed finding the verifier could
+  not prove, "unverified" when its verifier failed, "unproven" when no host probe
+  settled it. The Verification row is only for a Regraded, dismissed,
   Unproven or probe-settled finding.
 
   <article class="finding blocking">
