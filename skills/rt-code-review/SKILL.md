@@ -1,136 +1,85 @@
 ---
 name: rt-code-review
-description: Review a change in a Swift app or a pipeline package with an architecture reviewer, a test reviewer and a QA reviewer, using that stack's rules, verify each finding, then open an HTML report that starts with a visual summary of the change.
+description: Review a change in a Swift app or a pipeline package with architecture, test and QA reviewers, verify and score each finding, then open an HTML report with a change summary and reversibility, plus a lesson on the code the change touches.
 disable-model-invocation: true
 argument-hint: "[PR number | ref] [stack]"
 ---
 
 # RT code review
 
-Three reviewers judge one **review target** in parallel. Each owns one lane, and their findings stay in separate report sections: a clean architecture section must never hide a broken test. In the same batch, a change summariser writes the **change summary** that opens the report, so a reader knows what changed before they read a finding. The reviewers apply the rule sets of the review target's **stack**; each stack is a folder in [`stacks/`](stacks/). Then a **verifier** checks every finding, Nits included, so the report shows only findings that hold up and are worth fixing, and a reader can point at any of them by its **finding ID**.
+Three reviewers judge one **review target** in parallel, one lane each, using the rule sets of its **stack** (a folder in [`stacks/`](stacks/)). Alongside them, a change summariser writes the **change summary** and a lesson writer writes the **lesson**. A **verifier** then checks every finding and its **score**. `<skill>` below means this skill's base directory.
 
 ## 1. Resolve the review target
 
-The arguments are an optional target (a PR number or a ref) and an optional stack. The **stacks** are the folder names in `stacks/`, such as `swift-app` and `pipeline`. A lone argument that is a stack name is the stack, not a ref. Check the arguments before you run anything else:
+Arguments: an optional target (PR number or ref) and an optional stack (a folder name in `stacks/`). A lone stack name is the stack. A second argument must be a stack; a lone one must be a number, a stack or a ref `git rev-parse --verify` accepts. On a bad argument, stop: say what is wrong in one sentence and list the stacks.
 
-- A second argument must be a stack name.
-- A lone argument must be a number, a stack name or a ref that `git rev-parse --verify` accepts.
-
-When an argument fails its check, stop. Tell the user in one sentence what is wrong, and list the stacks.
-
-Pick the mode from the target:
-
-| Target | Mode | BASE | Diff command | Read a file | Search | List files |
+| Target | Mode | BASE | Diff | Read a file | Search | List files |
 |---|---|---|---|---|---|---|
-| A number | PR | `git fetch origin <baseRefName>` from `gh pr view <n> --json baseRefName,headRefName,title,url`, then `BASE=origin/<baseRefName>` | `git fetch origin pull/<n>/head`, `HEAD_SHA=$(git rev-parse FETCH_HEAD)`, then `git diff BASE...HEAD_SHA` | `git show HEAD_SHA:<path>` | `git grep -n <pattern> HEAD_SHA` | `git ls-tree -r --name-only HEAD_SHA` |
-| A ref (branch, commit, tag) | Ref | `git rev-parse --verify <ref>^{commit}` | `git diff <ref>...HEAD` | `git show HEAD:<path>` | `git grep -n <pattern> HEAD` | `git ls-tree -r --name-only HEAD` |
-| Nothing | Branch work | `git merge-base <default> HEAD`, where `<default>` is `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`, else `master` | `git diff BASE` plus the untracked files from `git ls-files --others --exclude-standard` | Read the working-tree file | `Grep` the working tree | `git ls-files` plus the untracked files |
+| Number | PR | `gh pr view <n> --json baseRefName,headRefName,title,url`, `git fetch origin <baseRefName>`, `BASE=origin/<baseRefName>` | `git fetch origin pull/<n>/head`, `HEAD_SHA=$(git rev-parse FETCH_HEAD)`, `git diff BASE...HEAD_SHA` | `git show HEAD_SHA:<path>` | `git grep -n <pattern> HEAD_SHA` | `git ls-tree -r --name-only HEAD_SHA` |
+| Ref | Ref | `git rev-parse --verify <ref>^{commit}` | `git diff <ref>...HEAD` | `git show HEAD:<path>` | `git grep -n <pattern> HEAD` | `git ls-tree -r --name-only HEAD` |
+| Nothing | Branch work | `git merge-base <default> HEAD`; `<default>` is `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`, else `master` | `git diff BASE` plus `git ls-files --others --exclude-standard` | the working-tree file | `Grep` | `git ls-files` plus untracked |
 
-PR mode leaves the working tree alone: it fetches, it never checks out.
+PR mode fetches and never checks out.
 
-Then pick the stack:
+Stack: an argument wins, recorded as `<stack> (argument)`. Otherwise check the `Markers` of every `stacks/<stack>/setup.md` with the list-files command; exactly one match is `<stack> (detected)`. With none or several, stop, say which matched, and ask for the stack as an argument. Then read the stack settings that `setup.md` describes.
 
-- **A stack argument** wins. Record it as `<stack> (argument)`.
-- **Otherwise detect it.** Read the `Markers` section of every `stacks/<stack>/stack.md` and check each against the head with the list-files command. When exactly one stack matches, record it as `<stack> (detected)`.
+The **target block**: mode, repo root, BASE, head (`HEAD_SHA`, `HEAD` or "working tree"), the diff, read-a-file, read-at-base (`git show <BASE>:<path>`), search and list-files commands, stack, stack settings, `git log --oneline BASE..<head>`, `git diff --stat`, and untracked files (Branch work).
 
-  When no stack matches, or more than one matches, stop. Tell the user in one sentence which stacks matched, or that none did. Ask them to run the review again with the stack as an argument.
+**Done when** every field is filled. Stop with one sentence when a command fails or the diff and untracked list are both empty.
 
-Then read the **stack settings** that the `Stack settings` section of `stacks/<stack>/stack.md` describes, at the head, with the read-a-file and list-files commands.
+## 2. Start the agents
 
-Build the **target block** the reviewers receive: mode, repo root path, BASE, head (`HEAD_SHA`, `HEAD`, or "working tree"), diff command, read-a-file command, search command, list-files command, stack, stack settings, commit list (`git log --oneline BASE..<head>`), changed files (`git diff --stat`), and untracked files (Branch work only).
+One message, one `Agent` call each, no model override. Every prompt is: the target block, a role line, then "Return <what> in the shape the file defines, and nothing else."
 
-**Done when** every field of the target block is filled. Stop here and tell the user why, in one sentence, if any command in the table fails (an unknown ref, a `gh pr view` or `git fetch` error, no default branch), or if the diff and the untracked list are both empty.
+| Agent (`subagent_type`) | Role line: "You are the <role>. Read …, then follow them." | Returns |
+|---|---|---|
+| Architecture, Test and QA reviewer (`rt-skills:rt-reviewer`) | `<skill>/reviewer-brief.md`, `<skill>/score.md`, `<skill>/stacks/<stack>/stack.md` and the rule file `architecture.md`, `test.md` or `qa.md` in that folder | findings |
+| Change summariser (`rt-skills:rt-change-summariser`) | `<skill>/change-summariser.md` and `<skill>/stacks/<stack>/reversibility.md` | the change summary |
+| Lesson writer (`rt-skills:rt-lesson-writer`) | `<skill>/lesson-writer.md`, `<skill>/stacks/<stack>/resources.md`; add "The learning workspace is `<workspace>`." | the lesson |
 
-## 2. Start the reviewers and the change summariser
+The **learning workspace** is the absolute path of `$HOME/.rt-skills/learning/<repo>/`, `<repo>` being the repo root's folder name.
 
-Send one message with four `Agent` calls, no model override: one per reviewer with `subagent_type: rt-skills:rt-reviewer`, and one for the change summariser with `subagent_type: rt-skills:rt-change-summariser`. Each agent's prompt has exactly three parts, in this order, or four with a fix context (below):
+When `rt-fix-findings` passes a **fix context**, add it to each reviewer's prompt before the return line, and start no lesson writer.
 
-1. The target block.
-2. **Role line**: "You are the <role>. Read `<this skill's base directory>/reviewer-brief.md`, `<this skill's base directory>/stacks/<stack>/stack.md` and `<this skill's base directory>/stacks/<stack>/<rule-file>`, then follow them."
-3. **Return line**: "Return your findings in the shape the brief defines, and nothing else."
-
-| Role | Rule file |
-|---|---|
-| Architecture reviewer | `architecture.md` |
-| Test reviewer | `test.md` |
-| QA reviewer | `qa.md` |
-
-The change summariser gets the same target block, with a different role line and return line:
-
-- **Role line**: "You are the change summariser. Read `<this skill's base directory>/change-summariser.md` and the diagram guide at `<this skill's base directory>/diagram-guide.md`, then follow them."
-- **Return line**: "Return the change summary in the shape the file defines, and nothing else."
-
-When `rt-fix-findings` starts this review with a **fix context**, each reviewer's prompt gains it as a fourth part, between the role line and the return line. The change summariser's prompt stays as it is.
-
-**Done when** all four agents have returned.
+**Done when** every agent has returned.
 
 ## 3. Verify findings
 
-Collect every finding from the three reviewers, and give each its **finding ID**: the lane letter (`A` for Architecture, `T` for Tests, `Q` for QA) and a number from 1, in the order the reviewer returned them. The ID stays with the finding from here on, in chat and in the report. When there are no findings, go to step 4.
+Give each finding its **finding ID**: `A`, `T` or `Q` for the lane, then 1, 2, … in the reviewer's order. Skip to step 4 when there are none.
 
-Send one message with one `Agent` call per finding, however many there are, no model override, with `subagent_type: rt-skills:rt-verifier`. Each prompt has exactly four parts, in this order:
+Start one `rt-skills:rt-verifier` per finding, all in one message, no model override. Prompt: the target block; "You are the verifier. Read `<skill>/verifier-brief.md`, `<skill>/score.md` and `<skill>/stacks/<stack>/stack.md`, then follow them."; the finding's block exactly as returned; "Return your verdict in the shape the brief defines, and nothing else." Never add a fix context.
 
-1. The target block.
-2. **Role line**: "You are the verifier. Read `<this skill's base directory>/verifier-brief.md` and `<this skill's base directory>/stacks/<stack>/stack.md`, then follow them."
-3. **The finding**: the finding's block, exactly as the reviewer returned it.
-4. **Return line**: "Return your verdict in the shape the brief defines, and nothing else."
+A finding's **status** is its verdict, with its proof for Confirmed and Regraded, such as `Regraded (Proven)`. Not worth fixing and Refuted are **dismissed**. A failed verifier, or a block missing a line its verdict needs, makes the finding **Unverified**; start no second verifier.
 
-A fix context stays out of these prompts, so each verdict comes from the code alone.
+**Host probes.** For each Unproven finding, run its probe only when `stack.md` has a `Host probes` section and the probe keeps its limits. One at a time, write it to `/tmp/rt-code-review/probes/<ID>.<ext>`, run it as that section says, and compare the output with `Expect` only. Record:
 
-Then apply each verdict to its finding:
+````
+- **Result:** <Confirmed: a run printed Expect | Refuted: every run printed something else | Unproven>
+- **Reason:** <only when Unproven: no Host probes section, limits broken, an early error or a timeout>
+- **Run:** <each command and its output, in fenced blocks; leave out when none ran>
+````
 
-| Verdict | The finding |
-|---|---|
-| Confirmed | Stays as it is. Record its `Proof`: Proven or Not proven. |
-| Regraded | Moves to the new severity. Record the old severity, the reason and the evidence. |
-| Not worth fixing, Refuted | Becomes a **dismissed finding**. Record the verdict, the reason and the evidence. |
-| Unproven | Goes to its **host probe**, below. |
+**Done when** every finding has a verdict, is Unverified, or has a probe result.
 
-A verifier `Fix` line replaces the reviewer's `Fix`; record that the fix was revised. When a verifier fails, or returns a block that is not in the brief's shape, start no second verifier: the finding stays as the reviewer wrote it and is marked **Unverified**.
+## 4. Render
 
-### Host probes
+In `/tmp/rt-code-review/runs/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>/` (`/` in the branch becomes `-`), write each file with one `Write`, agent text verbatim:
 
-An Unproven finding's probe runs only when `stacks/<stack>/stack.md` has a `Host probes` section, and only when the probe keeps that section's limits. Check each probe against those limits before you run it. Then, one probe at a time, write it to `/tmp/rt-code-review/probes/<finding ID>.<ext>` and run it as that section says. Compare each run's output with the verdict's `Expect` line:
+- `meta.md`: `- Key: value` lines for `Target` (one line), `Repo` (folder name), `Branch` (PR mode: headRefName), `Mode`, `Stack` (as in the target block), `Stack settings` (one line), `Base`, `Head` (PR mode: HEAD_SHA), `Uncommitted` (`yes` when Branch work reviewed uncommitted or untracked files), and `Learning workspace` when a lesson writer ran.
+- `summary.md`, and `lesson.md` when a lesson writer ran.
+- `findings.md`, when there are findings: per ID in order, `=== <ID> finding` and its block, `=== <ID> verdict` and its block (unless the verifier failed), `=== <ID> probe` and its result (Unproven only).
+- `fix-context.md`, when there is one.
 
-| Probe result | The finding |
-|---|---|
-| A run prints what `Expect` says | Confirmed and Proven. The evidence is the command and its output. |
-| Every run prints something else | Refuted, so dismissed. The evidence is each command and its output. |
-| The probe breaks the limits, errors before it reaches the claim, or times out | Stays **Unproven**. Record the reason, the probe and `Expect`. |
+Run `python3 <skill>/render.py <run folder>`. It writes the report, the **findings file** ([`findings-file.md`](findings-file.md)) and the lesson, and prints their paths and one status line per finding. On `error:`, fix the named input and rerun.
 
-Only compare the output with `Expect`; the verdict is the probe's, not yours.
+**Done when** it exits 0.
 
-**Done when** every finding has a verdict, is marked Unverified, or is Unproven with a recorded reason its probe did not settle it.
+## 5. Show and reply
 
-## 4. Build the HTML report
-
-Read [`diagram-guide.md`](diagram-guide.md) for its diagram guidance. Then fill [`report-template.html`](report-template.html):
-
-- The change summary goes into the `Change summary` section. The overview becomes `<p>` text. Each view becomes an `<h3>` title, a `<p>` sentence and a block chosen by its fence language: `mermaid` goes in a `<pre class="mermaid">`, `diff` goes in a `<pre class="diff">`, and every other language goes in a plain `<pre>`.
-- Each reviewer's findings go into that reviewer's section, with the reviewer's wording. Order the visible findings by their severity after step 3, Blocking first, and keep the reviewer's order within a severity. A finding that step 3 moved down to Nit stays, even past the brief's three-nit cap.
-- Dismissed findings go last in their reviewer's section, in one collapsed `<details class="dismissed">` block. Each one keeps its card at the reviewer's severity, with a `Verification` row for its verdict, reason and evidence. Its `Structure` stays text, because a diagram inside a closed block does not draw. When every finding in a section is dismissed, write the `No findings.` line above the block.
-- Each card keeps the finding ID that step 3 gave it, in the card title, before the severity badge. The order by severity can put IDs out of sequence; leave them so.
-- A Regraded card shows a `was <old severity>` tag and a `Verification` row with the verdict, reason and evidence. A card with a revised fix shows a `fix revised by verification` tag, a Confirmed card that is Not proven shows a `not proven` tag, and an Unverified card shows an `unverified` tag. An Unproven card stays visible at the reviewer's severity with an `unproven` tag and a `Verification` row holding the reason, the probe and `Expect`. A card that a probe settled shows the probe's command and output in its `Verification` row.
-- A finding with a `Structure` field gets a Mermaid `graph` drawn from it, in the finding card. A `Fix` with a `diff` block goes in a `<pre class="diff">`. Every other finding stays text.
-- With a fix context, the `Earlier findings` section gets one table row per fix context row. With none, delete the section.
-- HTML-escape all code, paths and diff text.
-- Delete the template's instructions comment, example card and example dismissed block.
-
-This step writes two files. Write the report page, which step 5 opens, with one `Write` call to `/tmp/rt-code-review/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>.html`, with `/` in the branch name replaced by `-`. Then write the **findings file** next to it, in the shape [`findings-file.md`](findings-file.md) defines.
-
-**Done when** the change summary and every finding from all three reviewers, dismissed ones included, are in the report, every card has a unique finding ID, the header counts match the cards (visible findings by severity, plus the dismissed count), and the findings file holds every finding.
-
-## 5. Open it and summarise
-
-Show the report where the user is working:
-
-- **Inside T3:** when this session has T3's `html_render` tool (it can be deferred; load it with ToolSearch `select:mcp__t3-code__html_render`), pass the report file's full HTML to `html_render` once, with the title `Code review: <review target>` and `height: 2000`. A report is nearly always taller than 2000, so a preview call to measure it only sends the page twice.
-- **Anywhere else:** only when the T3 tool is not in this session, open the file with the OS's opener. Run `uname -s`: on `Darwin` run `open <path>`; on `Linux` run `xdg-open <path> >/dev/null 2>&1 &`.
-
-The file on disk stays in both cases, so the user can still open it in a browser. When `rt-fix-findings` started this review, stop here: its summary is the reply. Otherwise reply in the chat with only this:
+Inside T3 (`html_render`, loadable with ToolSearch `select:mcp__t3-code__html_render`), render the report's full HTML once with title `Code review: <target>` and `height: 2000`, then the lesson's with title `Lesson: <title>`. Elsewhere, open both with `open` (Darwin) or `xdg-open` (Linux). When `rt-fix-findings` started this review, stop here. Otherwise reply with only:
 
 ```
-<review target, one line> · stack: <stack> (<detected | argument>)
+<target> · stack: <stack> (<detected | argument>) · <reversibility level>
 
 | Reviewer | Blocking | Should-fix | Nit | Dismissed |
 |---|---|---|---|---|
@@ -139,11 +88,16 @@ The file on disk stays in both cases, so the user can still open it in a browser
 | QA | n | n | n | n |
 
 Blocking:
-- <finding ID> [<reviewer>] `file:line`: <the finding's "What" sentence>
+- <ID> (<score>/10) [<reviewer>] `file:line`: <What sentence>
+
+Reversibility: <only when not Revert-safe: one line per trigger>
 
 Report: <path>
+Lesson: <path>. When you finish its quiz, paste the result line here.
 ```
 
-The counts and the Blocking list use the severities after step 3, without dismissed findings. Write "Blocking: none" when there are none.
+Counts use scores after step 3 and leave out dismissed findings. Write "Blocking: none" when empty.
 
-**Done when** the report is shown in the thread or open in the browser, and, unless `rt-fix-findings` started this review, the reply holds the target line, the counts table, the Blocking list with finding IDs, and the report path.
+## 6. Learning records
+
+For the rest of the conversation, when the developer pastes a quiz result, asks about the lesson, or says what they know, follow [`learning-record.md`](learning-record.md).

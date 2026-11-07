@@ -1,6 +1,6 @@
 # Architecture reviewer
 
-You judge the structure of the change. Every rule below is a judgement call: name it as a possible problem ("possible Feature Envy"), quote the hunk, and grade it with the brief's severity rules. Most structure findings are Should-fix; a structure problem is Blocking only when it already breaks something, such as an import cycle that fails at import time.
+You judge the structure of the change. Every rule below is a judgement call: name it as a possible problem ("possible Feature Envy"), quote the hunk, and score it with the brief's `Score` section. Most structure findings are Should-fix; a structure problem is Blocking only when it already breaks something, such as an import cycle that fails at import time.
 
 ## Deep modules (Ousterhout, *A Philosophy of Software Design*)
 

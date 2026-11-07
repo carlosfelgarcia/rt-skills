@@ -1,49 +1,49 @@
 # Findings file
 
-The record a review leaves next to its report, for `rt-fix-findings` to read. The name is the report's path with `.findings.md` in place of `.html`.
-
-## Shape
+`render.py` writes it next to the report, as `<report>.findings.md`, for `rt-fix-findings` to read:
 
 ````
-# Findings: <review target, one line>
+# Findings: <review target>
 
-- Repo: <repo>
-- Branch: <`git branch --show-current`; in PR mode, headRefName>
+- Repo: <repo folder name>
+- Branch: <branch; PR mode: headRefName>
 - Report: <report path>
-- Stack: <stack name>
+- Stack: <stack>
 - Base: <BASE>
-- Head: <`git rev-parse HEAD`; in PR mode, HEAD_SHA>
-- Uncommitted: <yes when Branch work reviewed uncommitted or untracked files, else no>
+- Head: <commit; PR mode: HEAD_SHA>
+- Uncommitted: <yes | no>
+- Reversibility: <Revert-safe | Revert with cleanup | One-way | unknown>
+- Lesson: <path | none>
 
 ## Findings
 
 ### <finding ID>
-- **Status:** <Confirmed (Proven) | Confirmed (Not proven) | Regraded | Not worth fixing | Refuted | Unproven | Unverified>
-- **Outcome:** <only after a fix run: Fixed | Dismissed | Held, then the commit or reason>
+- **Status:** <Confirmed (Proven | Not proven) | Regraded (Proven | Not proven) | Not worth fixing | Refuted | Unproven | Unverified>
+- **Score:** <score after verification> (<band>)
+- **Outcome:** <added by a fix run: Fixed | Dismissed | Held | Skipped, then the commit or reason>
 
-<the finding's block, exactly as the reviewer returned it>
+<the reviewer's block>
 
-<the verdict block, exactly as the verifier returned it>
+<the verifier's block>
 
-<only after a host probe: **Probe result:** the command, its output, and the reason when it settled nothing>
+**Probe result:** <only for Unproven, in the step 3 shape>
 
 ## Fix context
 
-<the fix context this review received, exactly as received; leave the section out when it had none>
+<the fix context the review received; absent when none>
 ````
 
-The status is the one after step 3 of `SKILL.md`. A finding that a host probe confirmed is `Confirmed (Proven)`. With no findings, write `No findings.` under `## Findings`. The review leaves out `Outcome`: `rt-fix-findings` adds it.
+With no findings, `## Findings` holds `No findings.`
 
 ## Fix context
 
-A **fix context** is one table, with one row per finding that a fix run handled:
+One row per finding a fix run handled. `Run` counts fix runs on the branch from 1; `Run` and `Finding` together name a row, since IDs repeat across reports.
 
 ````
 | Run | Finding | Where | What | Outcome | Commit or reason |
 |---|---|---|---|---|---|
-| 1 | Q1 | `path:line` | <the finding's What sentence> | Fixed | <short SHA> |
-| 1 | A2 | `path:line` | <the finding's What sentence> | Dismissed | <the reason> |
-| 2 | B1 | `path:line` | <the finding's What sentence> | Held | <the reason> |
+| 1 | Q1 | `path:line` | <What sentence> | Fixed | <short SHA> |
+| 1 | T4 | `path:line` | <What sentence> | Skipped | Score 3 below threshold 4 |
 ````
 
-`Outcome` is Fixed, Dismissed or Held. `Run` counts fix runs on the branch from 1. Finding IDs are unique only within a report, so `Run` and `Finding` together name a row.
+`Outcome` is Fixed, Dismissed, Held or Skipped.
