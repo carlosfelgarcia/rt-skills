@@ -1,0 +1,10 @@
+- Target: feature/save-draft (Branch work)
+- Repo: demo-app
+- Branch: feature/save-draft
+- Mode: Branch work
+- Stack: swift-app (detected)
+- Stack settings: language mode 6, strict concurrency complete
+- Base: 1111111
+- Head: 2222222
+- Uncommitted: no
+- Learning workspace: LEARNING_WORKSPACE

@@ -1,16 +1,7 @@
 <!doctype html>
 <!--
-  rt-code-review report template.
-  Replace every {{PLACEHOLDER}} outside the example card. {{STACK}} is the
-  target block's stack field, such as "pipeline (detected)", and
-  {{STACK_SETTINGS}} is its stack settings on one line. Replace the CHANGE SUMMARY comment with the
-  change summary. Replace each FINDINGS comment with one <article class="finding">
-  per visible finding (copy the example card below), then one
-  <details class="dismissed"> block holding the dismissed findings' cards (copy
-  the example below). Write <p class="clean">No findings.</p> when no visible
-  finding is left, and leave out the <details> block when nothing was dismissed.
-  Replace the EARLIER FINDINGS comment with one table row per fix context row,
-  or delete that section when the review has no fix context.
+  rt-code-review report template. render.py fills each placeholder in double braces; edit the
+  page layout here and the card markup in render.py.
 -->
 <html lang="en">
 <head>
@@ -67,6 +58,12 @@
   pre.mermaid { margin-top: 10px; padding: 16px; background: #fff; border: 0; border-radius: var(--radius, 6px); }
   p.clean { color: var(--muted-foreground, #656d76); font-style: italic; }
   @media (max-width: 600px) { dl { grid-template-columns: 1fr; } dt { margin-top: 6px; } }
+  .score { font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace); font-size: 12px; font-weight: 700;
+           border: 1px solid var(--border, #d8dee4); border-radius: 10px; padding: 1px 7px; }
+  .rev { font-size: 12px; font-weight: 700; border-radius: 10px; padding: 2px 9px; color: #fff; background: #1a7f37; }
+  .rev.cleanup { background: var(--warning, #bf8700); }
+  .rev.oneway { background: var(--destructive, #cf222e); }
+  section.reversibility ul { margin: 6px 0 0; padding-left: 20px; }
 </style>
 </head>
 <body>
@@ -74,77 +71,43 @@
 <header>
   <h1>Code review: {{TARGET_TITLE}}</h1>
   <div class="meta">
-    {{REPO}} · {{MODE}} · stack {{STACK}} · base <code>{{BASE}}</code> · head <code>{{HEAD}}</code> · {{DATE}}
+    {{REPO}} · {{MODE}} · stack {{STACK}} · base <code>{{BASE}}</code> · head <code>{{HEAD}}</code> · {{DATE}}{{REVERSIBILITY_BADGE}}{{LESSON_LINK}}
   </div>
   <div class="meta">Stack settings: {{STACK_SETTINGS}}</div>
   <table class="counts">
     <tr><th>Reviewer</th><th>Blocking</th><th>Should-fix</th><th>Nit</th><th>Dismissed</th></tr>
-    <tr><td><a href="#architecture">Architecture</a></td><td>{{ARCH_BLOCKING}}</td><td>{{ARCH_SHOULD_FIX}}</td><td>{{ARCH_NIT}}</td><td>{{ARCH_DISMISSED}}</td></tr>
-    <tr><td><a href="#tests">Tests</a></td><td>{{TEST_BLOCKING}}</td><td>{{TEST_SHOULD_FIX}}</td><td>{{TEST_NIT}}</td><td>{{TEST_DISMISSED}}</td></tr>
+    <tr><td><a href="#architecture">Architecture</a></td><td>{{ARCHITECTURE_BLOCKING}}</td><td>{{ARCHITECTURE_SHOULD_FIX}}</td><td>{{ARCHITECTURE_NIT}}</td><td>{{ARCHITECTURE_DISMISSED}}</td></tr>
+    <tr><td><a href="#tests">Tests</a></td><td>{{TESTS_BLOCKING}}</td><td>{{TESTS_SHOULD_FIX}}</td><td>{{TESTS_NIT}}</td><td>{{TESTS_DISMISSED}}</td></tr>
     <tr><td><a href="#qa">QA</a></td><td>{{QA_BLOCKING}}</td><td>{{QA_SHOULD_FIX}}</td><td>{{QA_NIT}}</td><td>{{QA_DISMISSED}}</td></tr>
   </table>
 </header>
 
 <section class="summary" id="summary">
   <h2>Change summary</h2>
-  <!-- CHANGE SUMMARY: the overview as <p>, then per view:
-       <h3>title</h3><p>sentence</p><pre class="mermaid | diff">...</pre> (plain <pre> for other languages) -->
+  {{SUMMARY}}
+</section>
+
+<section class="reversibility" id="reversibility">
+  <h2>Reversibility</h2>
+  {{REVERSIBILITY}}
 </section>
 
 <section class="reviewer" id="architecture">
   <h2>Architecture reviewer</h2>
-  <!-- FINDINGS: architecture -->
+  {{FINDINGS_ARCHITECTURE}}
 </section>
 
 <section class="reviewer" id="tests">
   <h2>Test reviewer</h2>
-  <!-- FINDINGS: tests -->
+  {{FINDINGS_TESTS}}
 </section>
 
 <section class="reviewer" id="qa">
   <h2>QA reviewer</h2>
-  <!-- FINDINGS: qa -->
+  {{FINDINGS_QA}}
 </section>
 
-<section id="earlier">
-  <h2>Earlier findings</h2>
-  <table class="earlier">
-    <tr><th>Run</th><th>Finding</th><th>Where</th><th>What</th><th>Outcome</th><th>Commit or reason</th></tr>
-    <!-- EARLIER FINDINGS: <tr><td>{{RUN}}</td><td>{{FINDING_ID}}</td><td><code>{{PATH}}:{{LINE}}</code></td><td>...</td><td>Fixed | Dismissed | Held</td><td>...</td></tr> -->
-  </table>
-</section>
-
-<!--
-  Example finding card. Class is blocking | should-fix | nit. The tags are
-  optional: "was <old severity>" for a Regraded finding, "fix revised by verification" when the
-  verifier replaced the fix, "not proven" for a Confirmed finding the verifier could
-  not prove, "unverified" when its verifier failed, "unproven" when no host probe
-  settled it. The Verification row is only for a Regraded, dismissed,
-  Unproven or probe-settled finding.
-
-  <article class="finding blocking">
-    <h3><span class="id">{{FINDING_ID}}</span> <span class="badge">Blocking</span> {{FINDING_TITLE}}
-        <span class="tag">was Should-fix</span> <span class="tag">fix revised by verification</span></h3>
-    <dl>
-      <dt>Where</dt><dd><code>{{PATH}}:{{LINE}}</code></dd>
-      <dt>What</dt><dd>...</dd>
-      <dt>Why</dt><dd>...</dd>
-      <dt>Fix</dt><dd>...<pre class="diff">-    {{OLD_LINE}}
-+    {{NEW_LINE}}</pre></dd>
-      <dt>Verification</dt><dd>{{VERDICT}}: {{REASON}}<pre>{{EVIDENCE}}</pre></dd>
-    </dl>
-    <pre class="mermaid">graph LR
-  {{MODULE_A}} --> {{MODULE_B}} --> {{MODULE_C}}</pre>
-  </article>
-
-  Example dismissed block. Each card keeps the reviewer's severity in its class
-  and badge, and its Verification row gives the verdict, reason and evidence.
-
-  <details class="dismissed">
-    <summary>Dismissed by verification ({{COUNT}})</summary>
-    <article class="finding should-fix">...</article>
-  </details>
--->
+{{EARLIER}}
 </main>
 <script>
   // Inside T3 the theme variables exist: the page then follows the thread's theme
