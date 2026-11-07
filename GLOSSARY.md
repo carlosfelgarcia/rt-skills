@@ -101,8 +101,16 @@ The one code review at the end of a fix run, with a fix context.
 _Avoid_: second review, follow-up review
 
 **Held finding**:
-A finding at or above the threshold that a fix run leaves for the user: Confirmed or Regraded but Not proven, Unproven, Unverified, one whose fix needs more than the finding describes, or an open finding that a bot run did not handle. Unlike a dismissed finding, it may still be real.
+A finding at or above the threshold that a fix run leaves for the user: Confirmed or Regraded but Not proven, Unproven, Unverified, one whose fix needs more than the finding describes, an open finding that a bot run did not handle, a Missed finding, or a Failed fix whose finding a fix run already tried again. Unlike a dismissed finding, it may still be real.
 _Avoid_: deferred finding
+
+**Fix base**:
+The code a branch held before its first fix run made a commit. Later fix runs on the branch keep it, so each re-review judges origin against the same code.
+_Avoid_: pre-fix head, original head
+
+**Origin**:
+Where a re-review finding comes from, proposed by its reviewer and settled by its verifier: **Added by a fix** (the issue does not exist at the fix base), **Failed fix** (it is a fixed finding that its fix did not solve) or **Missed** (the issue exists at the fix base, and no earlier review reported it). When the verifier cannot tell, the origin is Missed, marked not settled. Only re-review findings have an origin.
+_Avoid_: regression, cause, source
 
 **Skipped finding**:
 A finding that a fix run leaves unfixed because its score is below the threshold. It may be real, but it is not worth a commit at this threshold. The fix context records it, so a re-review does not raise it again.

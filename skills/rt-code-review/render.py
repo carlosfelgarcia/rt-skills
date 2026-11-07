@@ -139,7 +139,30 @@ def fill(template, values):
 
 # Findings
 
-def judge(fid, parts):
+def fix_context(run):
+    """The fix context table: its header cells, and one {header: cell} dict per row."""
+    path = run / "fix-context.md"
+    table = [[c.strip() for c in line.strip().strip("|").split("|")]
+             for line in (path.read_text().splitlines() if path.exists() else []) if line.strip().startswith("|")]
+    return (table[0], [dict(zip(table[0], row)) for row in table[2:]]) if table else ([], [])
+
+
+def origin_of(proposed, at_fix_base, rows):
+    """Settle a re-review finding's origin, as the Origin table of findings-file.md says (ADR 0009)."""
+    answer = re.match(r"\W*(present|absent)\b", at_fix_base or "", re.I)
+    if not answer:
+        return "Missed (not settled)"
+    named = re.search(r"Failed fix of\W*(\d+) ([ATQB]\d+)", proposed or "")
+    row = next((r for r in rows if named and (r.get("Run"), r.get("Finding")) == named.groups()
+                and r.get("Outcome") == "Fixed"), None)
+    failed = "Failed fix of %s %s" % named.groups() if row else None
+    if answer.group(1).lower() == "absent":
+        added = row and re.match(r"Added by a fix|Failed fix", row.get("Origin", ""))
+        return failed if added else "Added by a fix"
+    return failed or "Missed"
+
+
+def judge(fid, parts, rows=None):
     """Apply the verdict table of SKILL.md step 3 to one finding."""
     title, f = fields(parts.get("finding", ""))
     tags, score = [], score_of(f.get("Score"))
@@ -148,7 +171,8 @@ def judge(fid, parts):
         score = {"blocking": 8, "should-fix": 5, "nit": 2}[b.group(1).lower()] if b else 5
         tags.append("score inferred")
     d = dict(id=fid, num=int(fid[1:]), title=re.sub(r"^\[[^\]]*\]\s*", "", title), f=f, parts=parts,
-             reviewer_score=score, score=score, fix=f.get("Fix", ""), tags=tags, verification="", dismissed=False)
+             reviewer_score=score, score=score, fix=f.get("Fix", ""), tags=tags, verification="", dismissed=False,
+             origin=None)
 
     _, v = fields(parts.get("verdict"))
     verdict = next((x for x in VERDICTS if v.get("Verdict", "").startswith(x)), None)
@@ -158,6 +182,10 @@ def judge(fid, parts):
               or verdict in ("Confirmed", "Regraded") and not proof
               or verdict == "Regraded" and new_score is None
               or verdict == "Unproven" and not (v.get("Probe") and v.get("Expect")))
+    if rows is not None:
+        d["origin"] = origin_of(f.get("Origin"), None if broken else v.get("At fix base"), rows)
+        if not broken and not v.get("At fix base"):
+            warnings.append("%s: the verdict has no At fix base line, so its origin is not settled" % fid)
     if broken:
         if parts.get("verdict"):
             warnings.append("%s: the verdict block is not in the brief's shape, so it is Unverified" % fid)
@@ -205,12 +233,13 @@ def card(d):
     return ('<article class="finding %s"><h3><span class="id">%s</span> <span class="badge">%s</span> '
             '<span class="score">%d/10</span> %s%s</h3><dl>%s</dl>%s</article>') % (
         band(score).lower(), d["id"], band(score), score, inline(d["title"]),
-        "".join(' <span class="tag">%s</span>' % t for t in d["tags"]),
+        "".join(' <span class="tag">%s</span>' % t for t in d["tags"]) + (
+            ' <span class="tag origin">%s</span>' % esc(d["origin"][0].lower() + d["origin"][1:]) if d["origin"] else ""),
         "".join("<dt>%s</dt><dd>%s</dd>" % row for row in rows),
         '<pre class="mermaid">%s</pre>' % esc(diagram) if diagram else "")
 
 
-def load_findings(run):
+def load_findings(run, rows=None):
     parts = {}
     for m, body in split((run / "findings.md").read_text() if (run / "findings.md").exists() else "",
                          r"=== ([ATQ]\d+) (finding|verdict|probe)\s*$"):
@@ -219,7 +248,7 @@ def load_findings(run):
     for fid, p in parts.items():
         if "finding" not in p:
             raise RenderError("%s has no '=== %s finding' block" % (fid, fid))
-    return [judge(fid, p) for fid, p in parts.items()]
+    return [judge(fid, p, rows) for fid, p in parts.items()]
 
 
 def lane(findings):
@@ -331,11 +360,12 @@ def findings_file(meta, findings, report, level, lesson, run):
         ("Repo", meta["Repo"]), ("Branch", meta["Branch"]), ("Report", report),
         ("Stack", re.sub(r"\s*\(.*\)$", "", meta["Stack"])), ("Base", meta["Base"]), ("Head", meta["Head"]),
         ("Uncommitted", meta["Uncommitted"]), ("Reversibility", level or "unknown"), ("Lesson", lesson or "none"))]
+    out += ["- %s: %s" % (k, meta[k]) for k in ("Fix base", "Fix commits") if meta.get(k)]
     out += ["", "## Findings", ""] + ([] if findings else ["No findings.", ""])
     for d in sorted(findings, key=lambda d: ("ATQ".index(d["id"][0]), d["num"])):
         p = d["parts"]
-        out += ["### " + d["id"], "- **Status:** " + d["status"], "- **Score:** %d (%s)" % (d["score"], band(d["score"])), "",
-                p["finding"], ""] + ([p["verdict"], ""] if p.get("verdict") else []) + (
+        out += ["### " + d["id"], "- **Status:** " + d["status"], "- **Score:** %d (%s)" % (d["score"], band(d["score"]))] + (
+                ["- **Origin:** " + d["origin"]] if d["origin"] else []) + ["", p["finding"], ""] + ([p["verdict"], ""] if p.get("verdict") else []) + (
                 ["**Probe result:**", "", p["probe"], ""] if p.get("probe") else [])
     if (run / "fix-context.md").exists():
         out += ["## Fix context", "", (run / "fix-context.md").read_text().strip(), ""]
@@ -353,23 +383,22 @@ def render(run, out_dir):
     report, findings_md = out_dir.absolute() / (run.name + ".html"), out_dir.absolute() / (run.name + ".findings.md")
     date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    findings = load_findings(run)
+    heads, context = fix_context(run)
+    findings = load_findings(run, context if meta.get("Fix base") else None)
     summary, level, notes = load_summary(run)
     lesson = render_lesson(run, meta, report, date)
     rev = '<span class="rev %s">%s</span>' % (LEVEL_CLASS[level], level) if level else ""
-    context = [line.strip().strip("|").split("|") for line in
-               ((run / "fix-context.md").read_text().splitlines() if (run / "fix-context.md").exists() else [])
-               if line.strip().startswith("|")][2:]
     values = {
         "TARGET_TITLE": esc(meta["Target"]), "REPO": esc(meta["Repo"]), "MODE": esc(meta["Mode"]),
         "STACK": esc(meta["Stack"]), "STACK_SETTINGS": esc(meta.get("Stack settings", "none")),
         "BASE": esc(meta["Base"]), "HEAD": esc(meta["Head"]), "DATE": date, "SUMMARY": summary,
+        "FIX_BASE": " · fix base <code>%s</code>" % esc(meta["Fix base"]) if meta.get("Fix base") else "",
         "REVERSIBILITY_BADGE": " · " + rev if rev else "",
         "REVERSIBILITY": "<p>%s</p>%s" % (rev, md(notes)) if rev else '<p class="clean">No reversibility given.</p>',
         "LESSON_LINK": ' · <a href="%s">Lesson</a>' % esc(lesson.as_uri()) if lesson else "",
-        "EARLIER": ('<section id="earlier"><h2>Earlier findings</h2><table class="earlier"><tr><th>Run</th><th>Finding</th>'
-                    "<th>Where</th><th>What</th><th>Outcome</th><th>Commit or reason</th></tr>%s</table></section>" % "".join(
-                        "<tr>%s</tr>" % "".join("<td>%s</td>" % inline(c.strip()) for c in row) for row in context)) if context else "",
+        "EARLIER": ('<section id="earlier"><h2>Earlier findings</h2><table class="earlier"><tr>%s</tr>%s</table></section>' % (
+            "".join("<th>%s</th>" % esc(h) for h in heads),
+            "".join("<tr>%s</tr>" % "".join("<td>%s</td>" % inline(row.get(h, "")) for h in heads) for row in context))) if context else "",
     }
     for letter, key in LANES.items():
         mine = [d for d in findings if d["id"][0] == letter]
@@ -395,7 +424,7 @@ def main(argv):
         return 1
     print("report: %s\nfindings: %s\nlesson: %s" % (report, findings_md, lesson or "none"))
     for d in findings:
-        print("finding: %s %s %d/10" % (d["id"], d["status"], d["score"]))
+        print("finding: %s %s %d/10%s" % (d["id"], d["status"], d["score"], " · " + d["origin"] if d["origin"] else ""))
     print("".join("warning: %s\n" % w for w in warnings), end="")
     return 0
 

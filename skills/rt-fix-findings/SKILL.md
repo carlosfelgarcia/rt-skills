@@ -7,7 +7,7 @@ argument-hint: "[stack] [min=<1-10>] [report path | pasted bot findings]"
 
 # RT fix findings
 
-A **fix run** fixes the findings that exist and score at or above the **threshold**, re-reviews once, and ends with a summary and one next step. Each finding ends **Fixed**, **Dismissed**, **Held** or **Skipped**. Fixes stay in local commits; the user pushes.
+A **fix run** fixes the findings that exist and score at or above the **threshold**, re-reviews once, and ends with a summary and one next step. Each re-review finding has an **origin** (ADR 0009), so a fix run fixes what fixes added or failed to solve and holds what earlier reviews missed. Each finding ends **Fixed**, **Dismissed**, **Held** or **Skipped**. Fixes stay in local commits; the user pushes.
 
 The **review folder** is `<this skill's base directory>/../rt-code-review/`; in its files, "this skill's base directory" and relative links mean that folder. Read its `findings-file.md` first.
 
@@ -34,6 +34,8 @@ A report run with none stops and asks for `/rt-code-review`. A bot run uses it w
 
 Stop with one sentence when: `git status --porcelain` prints anything; the current branch is empty or the default branch; a report run's findings file names another `Branch`; or, in a bot run, `git fetch origin <branch>` or `git merge-base --is-ancestor FETCH_HEAD HEAD` fails (the local branch must hold what the bots read; use only the accounts `gh` and `git` are on). Then record `PRE_FIX=$(git rev-parse HEAD)`.
 
+The **fix base** is the findings file's `Fix base`, else `PRE_FIX`. When `git merge-base --is-ancestor <Fix base> HEAD` fails, as after a rebase, use `PRE_FIX` and note it for step 10. The starting **fix commits** are the findings file's `Fix commits`, else none. **Other commits** are those in `git rev-list <fix base>..PRE_FIX` that are not fix commits.
+
 ## 3. Build the target block
 
 | Run | BASE | Source |
@@ -43,11 +45,11 @@ Stop with one sentence when: `git status --porcelain` prints anything; the curre
 | Bot, `gh` fails | The newest findings file's `Base` | `findings file` |
 | Bot, neither | None: use Branch work | `default branch` |
 
-The stack is the argument, else the findings file's `Stack`, else detection. Follow step 1 of `<review folder>/SKILL.md` with BASE as the ref (none for Branch work) and the stack; stop when it stops.
+The stack is the argument, else the findings file's `Stack`, else detection. Follow step 1 of `<review folder>/SKILL.md` with BASE as the ref (none for Branch work) and the stack; stop when it stops. In a report run whose findings file has a `Fix base`, add the fix base to the target block. Bot findings have no origin, so a bot run's block has none.
 
 ## 4. Collect the findings
 
-**Report run**: read each finding with the `Score` under its `Status`. When `Head` equals `PRE_FIX` and `Uncommitted` is `no`, statuses stand and only Unverified findings go to a verifier. Otherwise every finding goes to a verifier, with its reviewer's block alone.
+**Report run**: read each finding with the `Score` and `Origin` under its `Status`. When `Head` equals `PRE_FIX` and `Uncommitted` is `no`, statuses and origins stand and only Unverified findings go to a verifier. Otherwise every finding goes to a verifier, with its reviewer's block alone, less its `Origin` line. A new verdict settles the origin again for a finding that has one, as the `Origin` section of `findings-file.md` says; a finding with none keeps none.
 
 **Bot run**: follow [`bot-findings.md`](bot-findings.md).
 
@@ -65,8 +67,13 @@ The first matching row gives the outcome; the score is the one after step 5.
 |---|---|
 | Not worth fixing, Refuted | **Dismissed** |
 | Any other, scored below the threshold | **Skipped**: `Score <n> below threshold <t>` |
+| Origin Missed (not settled) | **Held**: `Origin not settled` |
+| Origin Missed | **Held**: `Missed by the first review` |
+| Origin Failed fix of a row R, when R's own `Origin` is a Failed fix or another row's is `Failed fix of R` | **Held**: `Fix failed twice` |
 | Confirmed (Proven), Regraded (Proven) | **To fix** |
 | Any other | **Held** |
+
+A finding with no origin, from a first review or a bot, skips the three origin rows. A Failed fix that this table does not hold as `Fix failed twice` is a **first Failed fix**.
 
 ## 7. Fix
 
@@ -83,11 +90,11 @@ With commits since `PRE_FIX`, run what `Fix checks` in `<review folder>/stacks/<
 
 ## 9. Re-review
 
-Build the **fix context**: the starting rows, then one row per finding of this run, `Run` being one more than the highest starting row, or 1. A bot finding that repeats an earlier one has the reason `Repeats <ID>`. In a bot run with a findings file, also add a row for each of its findings: its `Outcome` line when it has one, else Dismissed with the verifier's reason when dismissed, Skipped when it scores below the threshold, and Held with `No fix run handled it` otherwise.
+Build the **fix context** in the shape `findings-file.md` gives: the starting rows, with `—` added as the `Origin` of a row that has none, then one row per finding of this run, `Run` being one more than the highest starting row, or 1. A row's `Origin` is its finding's, or `—`. A bot finding that repeats an earlier one has the reason `Repeats <ID>`. In a bot run with a findings file, also add a row for each of its findings: its `Outcome` line when it has one, else Dismissed with the verifier's reason when dismissed, Skipped when it scores below the threshold, and Held with `No fix run handled it` otherwise.
 
-In a report run, write each finding's result into the findings file as its `Outcome` line, even when this run stops here.
+The **fix commits** become the starting fix commits plus `git rev-list PRE_FIX..HEAD`. In a report run, write each finding's result into the findings file as its `Outcome` line, its origin as its `Origin` line when step 4 settled it again, and this run's fix base and fix commits as its `Fix base` and `Fix commits` lines, even when this run stops here. A later run then keeps the fix base when this run skips its re-review.
 
-With no commits since `PRE_FIX`, or a remaining failure of the fixes, skip the re-review and record why. Otherwise follow all of `<review folder>/SKILL.md` for BASE and the stack, with this fix context.
+With no commits since `PRE_FIX`, or a remaining failure of the fixes, skip the re-review and record why. Otherwise follow all of `<review folder>/SKILL.md` for BASE and the stack, with this fix context, the fix base and the fix commits.
 
 ## 10. Summarise
 
@@ -107,8 +114,15 @@ Checks:
 - Not run: <check>: <reason>
 
 Re-review: <"skipped:" and why, or the rt-code-review counts table>
-- re-review <ID> [<score>/10, <reviewer>] `file:line`: <What>, for each new finding at or above the threshold
-- Skipped below the threshold: <n>
+Added by a fix:
+- re-review <ID> [<score>/10, <reviewer>] `file:line`: <What>, for each new finding at or above the threshold with this origin
+Failed fix:
+- re-review <ID> [<score>/10, <reviewer>] `file:line`: <What> (of <Run> <Finding>; <"retry" | "held: failed twice">)
+Missed (held):
+- re-review <ID> [<score>/10, <reviewer>] `file:line`: <What>, "not settled" when so
+Skipped below the threshold: <n>
+
+Fix base: <short SHA>. <only with other commits: "No fix run made <n> commits since it, so 'Added by a fix' may include their changes."> <only when step 2 reset it: "The old fix base is not in the branch, so this run's PRE_FIX replaced it.">
 
 Reversibility: <level; when not Revert-safe, one line per trigger>
 
@@ -128,7 +142,8 @@ Next step: <one recommendation>
 Show each bot finding that matched an earlier finding with that ID, and note when the earlier one is Held or open. The next step is the first that applies:
 
 1. A failure of the fixes remains: repair it.
-2. The re-review has a finding at or above the threshold: run `/rt-fix-findings <re-review report>`, with the same `min=`.
-3. No commits and no findings file: run `/rt-code-review`.
-4. Held or open findings, or manual checks: name them and ask the user.
-5. Otherwise: push when ready; when One-way, first name what a revert cannot undo.
+2. The re-review has an Added by a fix finding or a first Failed fix at or above the threshold, and this run's `Run` is below 3: run `/rt-fix-findings <re-review report>`, with the same `min=`.
+3. Such a finding remains and this run's `Run` is 3 or more: say the branch has had three fix runs, name the findings, and ask the user. A run they start by hand still works.
+4. No commits and no findings file: run `/rt-code-review`.
+5. Held or open findings, Missed re-review findings, or manual checks: name them and ask the user.
+6. Otherwise: push when ready; when One-way, first name what a revert cannot undo.

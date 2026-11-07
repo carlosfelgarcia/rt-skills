@@ -23,7 +23,7 @@ PR mode fetches and never checks out.
 
 Stack: an argument wins, recorded as `<stack> (argument)`. Otherwise check the `Markers` of every `stacks/<stack>/setup.md` with the list-files command; exactly one match is `<stack> (detected)`. With none or several, stop, say which matched, and ask for the stack as an argument. Then read the stack settings that `setup.md` describes.
 
-The **target block**: mode, repo root, BASE, head (`HEAD_SHA`, `HEAD` or "working tree"), the diff, read-a-file, read-at-base (`git show <BASE>:<path>`), search and list-files commands, stack, stack settings, `git log --oneline BASE..<head>`, `git diff --stat`, and untracked files (Branch work).
+The **target block**: mode, repo root, BASE, head (`HEAD_SHA`, `HEAD` or "working tree"), the diff, read-a-file, read-at-base (`git show <BASE>:<path>`), search and list-files commands, stack, stack settings, `git log --oneline BASE..<head>`, `git diff --stat`, and untracked files (Branch work). When `rt-fix-findings` passes a **fix base**, add it with its read command, `git show <fix base>:<path>`.
 
 **Done when** every field is filled. Stop with one sentence when a command fails or the diff and untracked list are both empty.
 
@@ -47,7 +47,7 @@ When `rt-fix-findings` passes a **fix context**, add it to each reviewer's promp
 
 Give each finding its **finding ID**: `A`, `T` or `Q` for the lane, then 1, 2, … in the reviewer's order. Skip to step 4 when there are none.
 
-Start one `rt-skills:rt-verifier` per finding, all in one message, no model override. Prompt: the target block; "You are the verifier. Read `<skill>/verifier-brief.md`, `<skill>/score.md` and `<skill>/stacks/<stack>/stack.md`, then follow them."; the finding's block exactly as returned; "Return your verdict in the shape the brief defines, and nothing else." Never add a fix context.
+Start one `rt-skills:rt-verifier` per finding, all in one message, no model override. Prompt: the target block; "You are the verifier. Read `<skill>/verifier-brief.md`, `<skill>/score.md` and `<skill>/stacks/<stack>/stack.md`, then follow them."; the finding's block exactly as returned, less its `Origin` line; "Return your verdict in the shape the brief defines, and nothing else." Never add a fix context.
 
 A finding's **status** is its verdict, with its proof for Confirmed and Regraded, such as `Regraded (Proven)`. Not worth fixing and Refuted are **dismissed**. A failed verifier, or a block missing a line its verdict needs, makes the finding **Unverified**; start no second verifier.
 
@@ -65,12 +65,12 @@ A finding's **status** is its verdict, with its proof for Confirmed and Regraded
 
 In `/tmp/rt-code-review/runs/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>/` (`/` in the branch becomes `-`), write each file with one `Write`, agent text verbatim:
 
-- `meta.md`: `- Key: value` lines for `Target` (one line), `Repo` (folder name), `Branch` (PR mode: headRefName), `Mode`, `Stack` (as in the target block), `Stack settings` (one line), `Base`, `Head` (PR mode: HEAD_SHA), `Uncommitted` (`yes` when Branch work reviewed uncommitted or untracked files), and `Learning workspace` when a lesson writer ran.
+- `meta.md`: `- Key: value` lines for `Target` (one line), `Repo` (folder name), `Branch` (PR mode: headRefName), `Mode`, `Stack` (as in the target block), `Stack settings` (one line), `Base`, `Head` (PR mode: HEAD_SHA), `Uncommitted` (`yes` when Branch work reviewed uncommitted or untracked files), `Learning workspace` when a lesson writer ran, and `Fix base` and `Fix commits` as `rt-fix-findings` passes them.
 - `summary.md`, and `lesson.md` when a lesson writer ran.
 - `findings.md`, when there are findings: per ID in order, `=== <ID> finding` and its block, `=== <ID> verdict` and its block (unless the verifier failed), `=== <ID> probe` and its result (Unproven only).
 - `fix-context.md`, when there is one.
 
-Run `python3 <skill>/render.py <run folder>`. It writes the report, the **findings file** ([`findings-file.md`](findings-file.md)) and the lesson, and prints their paths and one status line per finding. On `error:`, fix the named input and rerun.
+Run `python3 <skill>/render.py <run folder>`. It writes the report, the **findings file** ([`findings-file.md`](findings-file.md)) and the lesson, and prints their paths and one status line per finding, with its **origin** when there is a fix base. On `error:`, fix the named input and rerun.
 
 **Done when** it exits 0.
 

@@ -1,6 +1,6 @@
 {
   "name": "rt-skills",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Carlos Garcia's agent skills, for RationalBit Swift apps and OD Studios pipeline packages.",
   "author": {
     "name": "Carlos Garcia"
