@@ -6,3 +6,4 @@
 
 - Stack detection can guess wrong. It reads root markers only. A repo with no marker stops the review and asks for the stack; it does not fall back to a general rule set.
 - Adding a stack means adding a `stacks/<stack>/` folder, not a new skill.
+- Reviewer rules that hold for every stack live once, in `rules/<lane>.md`. A stack's rule file holds only their forms in its code and the rules particular to it, because the copies in each stack had started to drift.

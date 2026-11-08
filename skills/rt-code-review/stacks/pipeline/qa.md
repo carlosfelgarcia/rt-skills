@@ -1,29 +1,20 @@
-# QA reviewer
+# QA: pipeline
 
-You judge whether the production code in the change works. Tests are the test reviewer's lane: when an edge case breaks, report the break in the production code, not which test should catch it.
-
-Work through every group below for every changed function.
+The pipeline forms of the rules in `rules/qa.md`, and the pipeline groups.
 
 ## Correctness
 
-- The code does what its name, docstring and commit message say.
-- Inverted conditions, wrong operators, off-by-one errors in ranges and frame ranges, wrong variable used.
+- Off-by-one in frame ranges too.
 - Return values on every path, including early returns.
 
 ## Edge cases
 
-Trace each input the change accepts through these values: empty, `None`, zero, negative, a boundary value, very large, duplicates, a missing file or directory, and paths with spaces, non-ASCII characters or a leading `-`.
+Also: paths with spaces, non-ASCII characters or a leading `-`.
 
 ## Error handling
 
-- Swallowed exceptions: bare `except:`, `except Exception: pass`, a logged error the caller never sees.
-- Errors that hide their cause: a re-raise that drops the original, a vague message, a wrong exception type.
-- Partial state after a failure: a multi-step operation (copy, then register, then notify) that leaves earlier steps done when a later step fails.
-- Resources not released on failure: open files, connections, temp directories, locks.
-
-## Regressions
-
-For every changed signature, return value, default or side effect, find its callers with the target block's search command and check each still works. Quote the caller that breaks.
+- Swallowed errors: bare `except:`, `except Exception: pass`.
+- Resources: temp directories too.
 
 ## Security (where the change touches it)
 
@@ -35,9 +26,8 @@ For every changed signature, return value, default or side effect, find its call
 
 ## Performance (where the change touches it)
 
-- N+1 queries: a ShotGrid, database or API call inside a loop that one batched call could replace.
+- A ShotGrid, database or API call inside a loop is the batched-call rule.
 - Quadratic loops over frames, assets, shots or files.
-- Repeated disk or network reads of the same data inside a loop.
 - Loading a whole large file where streaming would do.
 
 ## Concurrency (where the change touches it)

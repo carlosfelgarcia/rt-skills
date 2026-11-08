@@ -1,6 +1,6 @@
 ---
 name: rt-code-review
-description: Review a change in a Swift app or a pipeline package with architecture, test and QA reviewers, verify and score each finding, then open an HTML report with a change summary and reversibility, plus a lesson on the code the change touches.
+description: Review a change in a Swift app or pipeline package with three reviewers and a verifier per finding, then open an HTML report and a lesson.
 disable-model-invocation: true
 argument-hint: "[PR number | ref] [stack]"
 ---
@@ -11,7 +11,7 @@ Three reviewers judge one **review target** in parallel, one lane each, using th
 
 ## 1. Resolve the review target
 
-Arguments: an optional target (PR number or ref) and an optional stack (a folder name in `stacks/`). A lone stack name is the stack. A second argument must be a stack; a lone one must be a number, a stack or a ref `git rev-parse --verify` accepts. On a bad argument, stop: say what is wrong in one sentence and list the stacks.
+Arguments: an optional target (PR number or ref) and an optional stack (a folder name in `stacks/`). A lone argument is the stack when it names one, else it must be a number or a ref `git rev-parse --verify` accepts. A second argument must be a stack. On a bad argument, stop: say what is wrong in one sentence and list the stacks.
 
 | Target | Mode | BASE | Diff | Read a file | Search | List files |
 |---|---|---|---|---|---|---|
@@ -33,7 +33,7 @@ One message, one `Agent` call each, no model override. Every prompt is: the targ
 
 | Agent (`subagent_type`) | Role line: "You are the <role>. Read …, then follow them." | Returns |
 |---|---|---|
-| Architecture, Test and QA reviewer (`rt-skills:rt-reviewer`) | `<skill>/reviewer-brief.md`, `<skill>/score.md`, `<skill>/stacks/<stack>/stack.md` and the rule file `architecture.md`, `test.md` or `qa.md` in that folder | findings |
+| Architecture, Test and QA reviewer (`rt-skills:rt-reviewer`) | `<skill>/reviewer-brief.md`, `<skill>/score.md`, `<skill>/stacks/<stack>/stack.md`, and the lane's rule files `<skill>/rules/<lane>.md` and `<skill>/stacks/<stack>/<lane>.md`, `<lane>` being `architecture`, `test` or `qa` | findings |
 | Change summariser (`rt-skills:rt-change-summariser`) | `<skill>/change-summariser.md` and `<skill>/stacks/<stack>/reversibility.md` | the change summary |
 | Lesson writer (`rt-skills:rt-lesson-writer`) | `<skill>/lesson-writer.md`, `<skill>/stacks/<stack>/resources.md`; add "The learning workspace is `<workspace>`." | the lesson |
 

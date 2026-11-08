@@ -127,7 +127,7 @@ _Avoid_: pending finding, unfixed finding
 ### Score
 
 **Score**:
-A number from 1 to 10 for the harm a finding causes if nobody fixes it, set against the anchors in the reviewer brief. The reviewer proposes it and the verifier's verdict settles it. It sets the finding's band, and a fix run compares it with the threshold.
+A number from 1 to 10 for the harm a finding causes if nobody fixes it, set against the anchors in the review skill's `score.md`. The reviewer proposes it and the verifier's verdict settles it. It sets the finding's band, and a fix run compares it with the threshold.
 _Avoid_: priority, rating, severity score
 
 **Band**:
