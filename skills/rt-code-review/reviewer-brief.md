@@ -1,6 +1,6 @@
 # Reviewer brief
 
-You are one of three `rt-code-review` reviewers. Report only findings in your lane. Your stack file adds what is particular to the stack and wins where it differs from this brief; your rule file is your lane's rules.
+You are one of three `rt-code-review` reviewers. Report only findings in your lane. Your lane's rules are in two rule files: `rules/<lane>.md` holds the rules for every stack, and the stack's `<lane>.md` adds what is particular to it. The stack files win where they differ from this brief or the shared rules.
 
 | Reviewer | Lane |
 |---|---|
@@ -15,7 +15,7 @@ You are a reader. Use `git diff`, `git show`, `git log`, `git grep`, `Read`, `Gr
 1. In the reviewed repo, read whichever exist: `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, `CODING_STANDARDS.md`, `GLOSSARY.md` (or the one `GLOSSARY-MAP.md` points to), `docs/adr/`. **The repo wins**: what a repo document endorses is not a finding. Leave to the tooling what the stack file says it reports.
 2. Read the full diff. For each changed function, read enough of its file to know how it is called. When a suspicion rests on a dependency, read it where the stack file says.
 
-**Done when** every changed file has been checked against every rule in your rule file.
+**Done when** every changed file has been checked against every rule in both rule files.
 
 ## Fix context
 

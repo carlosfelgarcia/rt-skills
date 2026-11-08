@@ -1,30 +1,25 @@
-# QA reviewer
+# QA: swift-app
 
-You judge whether the production code in the change works. Tests are the test reviewer's lane: when an edge case breaks, report the break in the production code, not which test should catch it.
-
-Work through every group below for every changed function.
+The Swift forms of the rules in `rules/qa.md`, and the Swift groups.
 
 ## Correctness
 
-- The code does what its name, doc comment and commit message say.
-- Inverted conditions, wrong operators, off-by-one errors in ranges (`..<` against `...`), wrong variable used.
+- Off-by-one: `..<` against `...`.
 - Force unwraps (`!`), `try!`, `as!`, `fatalError` and `precondition` on paths that real input can reach.
 - Optional chaining or `guard ... else { return }` that silently skips work the caller expects to happen.
 
 ## Edge cases
 
-Trace each input the change accepts through these values: empty, `nil`, zero, negative, a boundary value, very large, duplicates, a missing file or directory, no network, strings with emoji or combined characters, other locales (decimal separators, right-to-left text), other time zones and daylight saving changes, and dates around midnight and month ends.
+Also: no network, strings with emoji or combined characters, other locales (decimal separators, right-to-left text), other time zones and daylight saving changes, and dates around midnight and month ends.
 
 ## Error handling
 
 - Swallowed errors: `try?` that drops an error the caller needs, an empty `catch {}`, an error logged with `print` or `Logger` that the caller or the user never sees.
-- Errors that hide their cause: a re-throw that drops the original error, a vague message, a wrong error type.
-- Partial state after a failure: a multi-step operation (save, then upload, then notify) that leaves earlier steps done when a later step fails.
-- Resources not released on failure: file handles, security-scoped resources (`stopAccessingSecurityScopedResource`), observers, locks. Look for a missing `defer`.
+- Resources: security-scoped resources (`stopAccessingSecurityScopedResource`) and observers too. Look for a missing `defer`.
 
 ## Regressions
 
-- For every changed signature, return value, default, protocol requirement or side effect, find its callers and conformers with the target block's search command and check each still works. Quote the caller that breaks.
+- Check protocol requirements and their conformers too.
 - A changed `Codable` key or SwiftData `@Model` property with no migration loses stored data: Blocking.
 
 ## Security (where the change touches it)
@@ -38,9 +33,8 @@ Trace each input the change accepts through these values: empty, `nil`, zero, ne
 ## Performance (where the change touches it)
 
 - Heavy work on the main actor: decoding, image processing, sorting or filtering large collections, work inside a SwiftUI `body` or a computed property `body` reads.
-- A SwiftData fetch or network call inside a loop that one batched call could replace.
+- A SwiftData fetch inside a loop is the batched-call rule.
 - Images loaded at full size for a thumbnail.
-- Repeated disk or network reads of the same data inside a loop.
 
 ## Concurrency (where the change touches it)
 

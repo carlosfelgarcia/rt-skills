@@ -28,30 +28,25 @@ Newest findings file, `<repo>` being the folder name of `git rev-parse --show-to
 grep -lxF -- "- Repo: <repo>" /tmp/rt-code-review/*.findings.md | xargs -r grep -lxF -- "- Branch: <current branch>" | xargs -r ls -t | head -1
 ```
 
-A report run with none stops and asks for `/rt-code-review`. A bot run uses it when it exists.
+A report run with none stops and asks for `/rt-code-review`. A bot run uses it when it exists, and reads [`bot-findings.md`](bot-findings.md) now: its sections add to steps 2, 3, 4, 9 and 11.
 
 ## 2. Check the branch
 
-Stop with one sentence when: `git status --porcelain` prints anything; the current branch is empty or the default branch; a report run's findings file names another `Branch`; or, in a bot run, `git fetch origin <branch>` or `git merge-base --is-ancestor FETCH_HEAD HEAD` fails (the local branch must hold what the bots read; use only the accounts `gh` and `git` are on). Then record `PRE_FIX=$(git rev-parse HEAD)`.
+Stop with one sentence when: `git status --porcelain` prints anything; the current branch is empty or the default branch; a report run's findings file names another `Branch`; or a bot run's branch check fails. Then record `PRE_FIX=$(git rev-parse HEAD)`.
 
-The **fix base** is the findings file's `Fix base`, else `PRE_FIX`. When `git merge-base --is-ancestor <Fix base> HEAD` fails, as after a rebase, use `PRE_FIX` and note it for step 10. The starting **fix commits** are the findings file's `Fix commits`, else none. **Other commits** are those in `git rev-list <fix base>..PRE_FIX` that are not fix commits.
+The **fix base** is the findings file's `Fix base`, else `PRE_FIX`. When `git merge-base --is-ancestor <Fix base> HEAD` fails, as after a rebase, use `PRE_FIX` and note it for step 11. The starting **fix commits** are the findings file's `Fix commits`, else none. **Other commits** are those in `git rev-list <fix base>..PRE_FIX` that are not fix commits.
 
 ## 3. Build the target block
 
-| Run | BASE | Source |
-|---|---|---|
-| Report | The findings file's `Base` | `findings file` |
-| Bot | `origin/<baseRefName>` from `gh pr view --json baseRefName`, after fetching it | `PR` |
-| Bot, `gh` fails | The newest findings file's `Base` | `findings file` |
-| Bot, neither | None: use Branch work | `default branch` |
+In a report run, BASE is the findings file's `Base`, with source `findings file`. A bot run takes BASE and source from `bot-findings.md`.
 
-The stack is the argument, else the findings file's `Stack`, else detection. Follow step 1 of `<review folder>/SKILL.md` with BASE as the ref (none for Branch work) and the stack; stop when it stops. In a report run whose findings file has a `Fix base`, add the fix base to the target block. Bot findings have no origin, so a bot run's block has none.
+The stack is the argument, else the findings file's `Stack`, else detection. Follow step 1 of `<review folder>/SKILL.md` with BASE as the ref (none for Branch work) and the stack; stop when it stops. In a report run whose findings file has a `Fix base`, add the fix base to the target block.
 
 ## 4. Collect the findings
 
 **Report run**: read each finding with the `Score` and `Origin` under its `Status`. When `Head` equals `PRE_FIX` and `Uncommitted` is `no`, statuses and origins stand and only Unverified findings go to a verifier. Otherwise every finding goes to a verifier, with its reviewer's block alone, less its `Origin` line. A new verdict settles the origin again for a finding that has one, as the `Origin` section of `findings-file.md` says; a finding with none keeps none.
 
-**Bot run**: follow [`bot-findings.md`](bot-findings.md).
+**Bot run**: follow the `Collect the findings` section of `bot-findings.md`.
 
 The starting fix context is the findings file's `Fix context`, when it has one.
 
@@ -69,11 +64,13 @@ The first matching row gives the outcome; the score is the one after step 5.
 | Any other, scored below the threshold | **Skipped**: `Score <n> below threshold <t>` |
 | Origin Missed (not settled) | **Held**: `Origin not settled` |
 | Origin Missed | **Held**: `Missed by the first review` |
-| Origin Failed fix of a row R, when R's own `Origin` is a Failed fix or another row's is `Failed fix of R` | **Held**: `Fix failed twice` |
+| Origin `Failed fix of` row R, where R's own `Origin` is a Failed fix, or another fix context row already reads `Failed fix of R` | **Held**: `Fix failed twice` |
 | Confirmed (Proven), Regraded (Proven) | **To fix** |
 | Any other | **Held** |
 
 A finding with no origin, from a first review or a bot, skips the three origin rows. A Failed fix that this table does not hold as `Fix failed twice` is a **first Failed fix**.
+
+**Done when** every finding has exactly one outcome.
 
 ## 7. Fix
 
@@ -84,19 +81,29 @@ One finding at a time, highest score first, then by ID. A verifier's `Fix` repla
 3. When the fix changes behavior and the repo already tests that module, add or update a test in the same commit. Set up no test infrastructure.
 4. Commit it alone, with the finding ID and title, in the repo's commit style.
 
+**Done when** every To fix finding is Fixed, with a commit, or Held, with a reason, and `git status --porcelain` prints nothing.
+
 ## 8. Run the fix checks
 
-With commits since `PRE_FIX`, run what `Fix checks` in `<review folder>/stacks/<stack>/setup.md` allows, and record each command and result, or why it could not run. A failure belongs to the fixes when it names a file they changed, a test of one, or a caller. Make one repair in its own commit and rerun. When a failure of the fixes remains, keep every commit and record it: step 9 skips the re-review. Note other failures and continue.
+With commits since `PRE_FIX`, run what `Fix checks` in `<review folder>/stacks/<stack>/setup.md` allows, and record each command and result, or why it could not run. A failure belongs to the fixes when it names a file they changed, a test of one, or a caller. Make one repair in its own commit and rerun. When a failure of the fixes remains, keep every commit and record it: step 10 skips the re-review. Note other failures and continue.
 
-## 9. Re-review
+**Done when** every check has a result or a reason it did not run, and every failure belongs to the fixes or is noted.
 
-Build the **fix context** in the shape `findings-file.md` gives: the starting rows, with `—` added as the `Origin` of a row that has none, then one row per finding of this run, `Run` being one more than the highest starting row, or 1. A row's `Origin` is its finding's, or `—`. A bot finding that repeats an earlier one has the reason `Repeats <ID>`. In a bot run with a findings file, also add a row for each of its findings: its `Outcome` line when it has one, else Dismissed with the verifier's reason when dismissed, Skipped when it scores below the threshold, and Held with `No fix run handled it` otherwise.
+## 9. Record
 
-The **fix commits** become the starting fix commits plus `git rev-list PRE_FIX..HEAD`. In a report run, write each finding's result into the findings file as its `Outcome` line, its origin as its `Origin` line when step 4 settled it again, and this run's fix base and fix commits as its `Fix base` and `Fix commits` lines, even when this run stops here. A later run then keeps the fix base when this run skips its re-review.
+Build the **fix context** in the shape `findings-file.md` gives: the starting rows, with `—` added as the `Origin` of a row that has none, then one row per finding of this run, `Run` being one more than the highest starting row, or 1. A row's `Origin` is its finding's, or `—`. A bot run adds the rows `bot-findings.md` gives.
+
+The **fix commits** become the starting fix commits plus `git rev-list PRE_FIX..HEAD`. In a report run, write each finding's result into the findings file as its `Outcome` line, its origin as its `Origin` line when step 4 settled it again, and this run's fix base and fix commits as its `Fix base` and `Fix commits` lines. A later run then keeps the fix base when this run skips its re-review.
+
+**Done when** every finding of this run has its fix context row, and in a report run the findings file holds every `Outcome` line and this run's `Fix base` and `Fix commits`.
+
+## 10. Re-review
 
 With no commits since `PRE_FIX`, or a remaining failure of the fixes, skip the re-review and record why. Otherwise follow all of `<review folder>/SKILL.md` for BASE and the stack, with this fix context, the fix base and the fix commits.
 
-## 10. Summarise
+**Done when** the re-review's report is shown and its findings file is written, or the skip and its reason are recorded.
+
+## 11. Summarise
 
 Reply with only this, leaving out empty sections. Re-review IDs read `re-review Q1`.
 
@@ -139,7 +146,7 @@ Reports: <source report> · <re-review report>
 Next step: <one recommendation>
 ```
 
-Show each bot finding that matched an earlier finding with that ID, and note when the earlier one is Held or open. The next step is the first that applies:
+**Done when** every finding is in the table, every check is under `Ran` or `Not run`, and the reply ends with exactly one next step, the first that applies:
 
 1. A failure of the fixes remains: repair it.
 2. The re-review has an Added by a fix finding or a first Failed fix at or above the threshold, and this run's `Run` is below 3: run `/rt-fix-findings <re-review report>`, with the same `min=`.
