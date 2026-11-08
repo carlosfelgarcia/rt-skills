@@ -17,18 +17,16 @@ You are a reader. Use `git diff`, `git show`, `git log`, `git grep`, `Read`, `Gr
 
 **Done when** every changed file has been checked against every rule in both rule files.
 
-## Fix context
+## Re-review
 
-Your prompt can hold a **fix context**: earlier findings and their outcome.
+Your prompt can hold a **fix context**: the findings of one fix run and their outcome. Then this is a **re-review** (ADR 0010): BASE is the commit before that fix run, so the diff holds only its fixes. Report only these two kinds of finding, each with an `Origin` line that the verifier settles:
 
-- **Fixed**: read the commit. Raise a finding when it does not solve the earlier finding, or breaks something.
-- **Dismissed, Held, Skipped**: raise it only when a fix changed the reason in its row, and name that change in `What`.
+- **Failed fix of <Run> <Finding>**: the commit of a Fixed row does not solve its finding. Check each Fixed row whose `Finding` starts with your lane's letter (A, T or Q), and each `B` row whose issue is in your lane: read its `Where`, `What` and commit.
+- **Added by a fix**: a fix causes an issue that scores 8 or more: a bug, data loss, a security hole, a broken caller, or a test that cannot fail for the defect it exists to catch. Read the callers of each function the fixes change, because the issue can be outside the diff.
 
-With a fix context, the target block has a **fix base**: the code before the first fix run. Give each finding an `Origin` line, which the verifier settles:
+Report nothing else: no issue that is in the code at BASE, no row that is Dismissed, Held or Skipped, and no issue in the fixes' code that scores below 8. Use your rule files to decide if an issue is in your lane and how much harm it causes.
 
-- **Added by a fix**: the issue is not in the code at the fix base.
-- **Failed fix of <Run> <Finding>**: the issue is the one that Fixed row names, and its commit does not solve it. Name the newest Fixed row for the issue.
-- **Missed**: the issue is in the code at the fix base, and no row names it.
+**Done when** each Fixed row of your lane has been checked against its commit, and the callers of each function the fixes change have been read. This replaces the done-when above.
 
 ## Findings
 
@@ -44,7 +42,7 @@ Write in ASD-STE100 Simplified Technical English, with the reviewed repo's gloss
 - **Why:** <one sentence: what goes wrong because of it>
 - **Fix:** <one sentence, or a short diff block>
 - **Structure:** <only for dependency direction or layering: modules and arrows, as in the stack file's example>
-- **Origin:** <only with a fix context: Added by a fix | Failed fix of <Run> <Finding> | Missed>
+- **Origin:** <only in a re-review: Added by a fix | Failed fix of <Run> <Finding>>
 ````
 
 A code fix goes in a `diff` fenced block under `Fix`. With no findings, return exactly: `No findings.`

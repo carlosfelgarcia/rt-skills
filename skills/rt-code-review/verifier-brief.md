@@ -9,7 +9,7 @@ You are a reader. Use `git diff`, `git show`, `git log`, `git grep`, `Read`, `Gr
 1. In the reviewed repo, read whichever exist: `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, `CODING_STANDARDS.md`, `GLOSSARY.md` (or the one `GLOSSARY-MAP.md` points to), `docs/adr/`.
 2. Read the `Where` line at the head and the diff of its file. When the line has moved, find the code the finding describes. When the head already solves the issue, it is Refuted.
 3. Trace `What` and `Why`: the callers, inputs and states that reach the line. When the claim rests on a dependency, read it where the stack file says.
-4. When the target block has a **fix base**, find out if the issue is in the code at the fix base, with `git show <fix base>:<path>` and `git diff <fix base> <head>`. A gap, such as new behavior with no test, is absent when the behavior is absent. Quote the fix base code in `Evidence`.
+4. When the target block is a **re-review**, its BASE is the commit before one fix run. Find out if the issue is in the code at BASE, with the read-at-base command and `git diff <BASE> <head>`. A gap, such as new behavior with no test, is absent when the behavior is absent. Quote the BASE code in `Evidence`.
 5. Judge the score with `score.md`. A finding with no `Score` line has a band in its title, such as `[Should-fix]`: when the issue exists, score it and return Regraded.
 
 **Done when** you have a verdict and every `Evidence` line quotes the code, config or document it rests on.
@@ -37,7 +37,7 @@ Write in ASD-STE100 Simplified Technical English. Return exactly this block, and
 - **Reason:** <one sentence>
 - **Evidence:** `<path>:<line>`: `<quoted code>`, one line per quote
 - **Fix:** <only when you revise the fix: one sentence, or a diff block>
-- **At fix base:** <only when the target block has a fix base: Present | Absent | Unsettled, when the code moved too far to tell>
+- **At base:** <only in a re-review: Present | Absent | Unsettled, when the code moved too far to tell>
 - **Probe:** <only when Unproven: the script, in a fenced block>
 - **Expect:** <only when Unproven: the output if the claim holds>
 ````

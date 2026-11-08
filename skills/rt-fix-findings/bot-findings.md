@@ -11,10 +11,10 @@ The branch check fails when `git fetch origin <branch>` or `git merge-base --is-
 | Case | BASE | Source |
 |---|---|---|
 | `gh pr view --json baseRefName` works | `origin/<baseRefName>`, after fetching it | `PR` |
-| `gh` fails | The newest findings file's `Base` | `findings file` |
+| `gh` fails, and the newest findings file has no `Re-review: yes` | Its `Base` | `findings file` |
 | Neither | None: use Branch work | `default branch` |
 
-Bot findings have no origin, so the target block has no fix base.
+Bot findings have no origin, so the target block is not a re-review. A re-review's `Base` is the commit before one fix run, too narrow for what bots read.
 
 ## Collect the findings (step 4)
 
@@ -45,7 +45,7 @@ Bot findings have no origin, so the target block has no fix base.
    |---|---|---|---|---|
    | Score | 9 | 8 | 5 | 2 |
 
-4. **Compare with the earlier review.** With no findings file, every finding goes to a verifier. Otherwise compare with its `Findings` and `Fix context`; a match is the same claim about the same code, and any doubt is no match. An earlier finding's state is its `Outcome` (row or line); without one, it is Dismissed when Not worth fixing or Refuted, and otherwise **open**.
+4. **Compare with the earlier review.** With no findings file, every finding goes to a verifier. Otherwise compare with its `Findings` and `Fix context`; a match is the same claim about the same code, and any doubt is no match. An earlier finding's state is its `Outcome` (row or line); without one, it is Dismissed when Not worth fixing, Refuted or of origin Before the fix run, and otherwise **open**.
 
    | The earlier finding is | This finding |
    |---|---|

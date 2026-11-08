@@ -147,19 +147,20 @@ def fix_context(run):
     return (table[0], [dict(zip(table[0], row)) for row in table[2:]]) if table else ([], [])
 
 
-def origin_of(proposed, at_fix_base, rows):
-    """Settle a re-review finding's origin, as the Origin table of findings-file.md says (ADR 0009)."""
-    answer = re.match(r"\W*(present|absent)\b", at_fix_base or "", re.I)
+BEFORE = "Before the fix run"
+
+
+def origin_of(proposed, at_base, rows):
+    """Settle a re-review finding's origin, as the Origin table of findings-file.md says (ADR 0010)."""
+    answer = re.match(r"\W*(present|absent)\b", at_base or "", re.I)
     if not answer:
-        return "Missed (not settled)"
+        return "Not settled"
+    if answer.group(1).lower() == "absent":
+        return "Added by a fix"
     named = re.search(r"Failed fix of\W*(\d+) ([ATQB]\d+)", proposed or "")
     row = next((r for r in rows if named and (r.get("Run"), r.get("Finding")) == named.groups()
                 and r.get("Outcome") == "Fixed"), None)
-    failed = "Failed fix of %s %s" % named.groups() if row else None
-    if answer.group(1).lower() == "absent":
-        added = row and re.match(r"Added by a fix|Failed fix", row.get("Origin", ""))
-        return failed if added else "Added by a fix"
-    return failed or "Missed"
+    return "Failed fix of %s %s" % named.groups() if row else BEFORE
 
 
 def judge(fid, parts, rows=None):
@@ -183,9 +184,9 @@ def judge(fid, parts, rows=None):
               or verdict == "Regraded" and new_score is None
               or verdict == "Unproven" and not (v.get("Probe") and v.get("Expect")))
     if rows is not None:
-        d["origin"] = origin_of(f.get("Origin"), None if broken else v.get("At fix base"), rows)
-        if not broken and not v.get("At fix base"):
-            warnings.append("%s: the verdict has no At fix base line, so its origin is not settled" % fid)
+        d["origin"] = origin_of(f.get("Origin"), None if broken else v.get("At base"), rows)
+        if not broken and not v.get("At base"):
+            warnings.append("%s: the verdict has no At base line, so its origin is not settled" % fid)
     if broken:
         if parts.get("verdict"):
             warnings.append("%s: the verdict block is not in the brief's shape, so it is Unverified" % fid)
@@ -219,6 +220,9 @@ def judge(fid, parts, rows=None):
             d.update(status="Unproven", verification="<strong>Unproven</strong>: %s%s<p>Probe:</p>%s<p>Expect: %s</p>%s" % (
                 inline(p.get("Reason") or "No host probe ran."), md(v.get("Evidence"), False),
                 md(v.get("Probe"), False), inline(v.get("Expect")), run))
+    if d["origin"] == BEFORE and not d["dismissed"]:
+        d.update(dismissed=True, verification="<strong>%s</strong>: the issue is in the code before the fix run, "
+                 "so this re-review does not judge it. %s" % (BEFORE, d["verification"] or reason))
     return d
 
 
@@ -360,7 +364,7 @@ def findings_file(meta, findings, report, level, lesson, run):
         ("Repo", meta["Repo"]), ("Branch", meta["Branch"]), ("Report", report),
         ("Stack", re.sub(r"\s*\(.*\)$", "", meta["Stack"])), ("Base", meta["Base"]), ("Head", meta["Head"]),
         ("Uncommitted", meta["Uncommitted"]), ("Reversibility", level or "unknown"), ("Lesson", lesson or "none"))]
-    out += ["- %s: %s" % (k, meta[k]) for k in ("Fix base", "Fix commits") if meta.get(k)]
+    out += ["- Re-review: yes"] if meta.get("Re-review") == "yes" else []
     out += ["", "## Findings", ""] + ([] if findings else ["No findings.", ""])
     for d in sorted(findings, key=lambda d: ("ATQ".index(d["id"][0]), d["num"])):
         p = d["parts"]
@@ -384,7 +388,7 @@ def render(run, out_dir):
     date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     heads, context = fix_context(run)
-    findings = load_findings(run, context if meta.get("Fix base") else None)
+    findings = load_findings(run, context if meta.get("Re-review") == "yes" else None)
     summary, level, notes = load_summary(run)
     lesson = render_lesson(run, meta, report, date)
     rev = '<span class="rev %s">%s</span>' % (LEVEL_CLASS[level], level) if level else ""
@@ -392,7 +396,7 @@ def render(run, out_dir):
         "TARGET_TITLE": esc(meta["Target"]), "REPO": esc(meta["Repo"]), "MODE": esc(meta["Mode"]),
         "STACK": esc(meta["Stack"]), "STACK_SETTINGS": esc(meta.get("Stack settings", "none")),
         "BASE": esc(meta["Base"]), "HEAD": esc(meta["Head"]), "DATE": date, "SUMMARY": summary,
-        "FIX_BASE": " · fix base <code>%s</code>" % esc(meta["Fix base"]) if meta.get("Fix base") else "",
+        "RE_REVIEW": " · re-review of one fix run" if meta.get("Re-review") == "yes" else "",
         "REVERSIBILITY_BADGE": " · " + rev if rev else "",
         "REVERSIBILITY": "<p>%s</p>%s" % (rev, md(notes)) if rev else '<p class="clean">No reversibility given.</p>',
         "LESSON_LINK": ' · <a href="%s">Lesson</a>' % esc(lesson.as_uri()) if lesson else "",

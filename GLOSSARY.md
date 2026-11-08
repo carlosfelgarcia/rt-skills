@@ -61,7 +61,7 @@ A verifier's judgement of one finding: **Confirmed** (the issue exists and its s
 _Avoid_: result, outcome
 
 **Dismissed finding**:
-A finding whose verdict is Not worth fixing or Refuted, or a bot finding that repeats a dismissed, skipped, held or open finding from an earlier review. The report keeps a dismissed finding that has a verdict, collapsed, with the verifier's reason.
+A finding whose verdict is Not worth fixing or Refuted, a re-review finding whose origin is Before the fix run, or a bot finding that repeats a dismissed, skipped, held or open finding from an earlier review. The report keeps a dismissed finding that has a verdict, collapsed, with the verifier's reason.
 _Avoid_: rejected finding, false positive
 
 **Unverified finding**:
@@ -89,7 +89,7 @@ Something a bot asks for that only a person can do, such as a device test or a d
 _Avoid_: to-do, follow-up
 
 **Fix context**:
-What the reviewers of a later review receive about earlier fixes: how each finding was fixed, or why it was not. Verifiers never receive it.
+The record of each finding that fix runs on a branch handled: how it was fixed, or why it was not. A re-review's reviewers receive the rows of its own fix run; verifiers never receive it.
 _Avoid_: fix notes, review hints
 
 **Fix run**:
@@ -97,23 +97,19 @@ One pass of fixing a single set of findings: the findings of one report, or one 
 _Avoid_: fix pass, fix loop
 
 **Re-review**:
-The one code review at the end of a fix run, with a fix context.
+The one code review at the end of a fix run, with a fix context. It judges only the commits of that fix run: it reports a fix that does not solve its finding, and a Blocking issue that a fix added. It does not look for issues that existed before the fixes, or for smaller issues in the fixes' code.
 _Avoid_: second review, follow-up review
 
 **Held finding**:
-A finding at or above the threshold that a fix run leaves for the user: Confirmed or Regraded but Not proven, Unproven, Unverified, one whose fix needs more than the finding describes, an open finding that a bot run did not handle, a Missed finding, or a Failed fix whose finding a fix run already tried again. Unlike a dismissed finding, it may still be real.
+A finding at or above the threshold that a fix run leaves for the user: Confirmed or Regraded but Not proven, Unproven, Unverified, one whose fix needs more than the finding describes, an open finding that a bot run did not handle, a finding whose origin is not settled, or a Failed fix whose finding a fix run already tried again. Unlike a dismissed finding, it may still be real.
 _Avoid_: deferred finding
 
-**Fix base**:
-The code a branch held before its first fix run made a commit. Later fix runs on the branch keep it, so each re-review judges origin against the same code.
-_Avoid_: pre-fix head, original head
-
 **Origin**:
-Where a re-review finding comes from, proposed by its reviewer and settled by its verifier: **Added by a fix** (the issue does not exist at the fix base), **Failed fix** (it is a fixed finding that its fix did not solve) or **Missed** (the issue exists at the fix base, and no earlier review reported it). When the verifier cannot tell, the origin is Missed, marked not settled. Only re-review findings have an origin.
+Where a re-review finding comes from, proposed by its reviewer and settled by its verifier: **Added by a fix** (the issue does not exist before the fix run's first commit), **Failed fix** (it is a fixed finding that its fix did not solve) or **Before the fix run** (the issue exists before the fix run, and no fix of the run was meant to solve it), which a re-review does not judge, so the finding is dismissed. When the verifier cannot tell, the origin is not settled. Only re-review findings have an origin.
 _Avoid_: regression, cause, source
 
 **Skipped finding**:
-A finding that a fix run leaves unfixed because its score is below the threshold. It may be real, but it is not worth a commit at this threshold. The fix context records it, so a re-review does not raise it again.
+A finding that a fix run leaves unfixed because its score is below the threshold, or, for a finding that a fix added, below the Blocking band. It may be real, but it is not worth a commit at this threshold. The fix context records it.
 _Avoid_: ignored finding, held finding
 
 **Threshold**:

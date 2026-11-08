@@ -1,5 +1,7 @@
 # Label re-review findings by origin, and hold missed ones
 
+Status: superseded in part by ADR 0010, which limits the re-review to the commits of its fix run.
+
 A fix run re-reviews the whole branch, and its next step was to fix any re-review finding at or above the threshold. Fresh reviewers do not find the same things twice, so each re-review also reported issues that existed before any fix and that the earlier review did not report. Those findings looked the same as bugs a fix added, and they kept the fix runs going with no end. Each re-review finding now has an **origin**: **Added by a fix**, **Failed fix** or **Missed**. A fix run fixes the first two and holds the third for the user.
 
 The test is causal: a finding is Added by a fix when its issue does not exist at the **fix base**, the code before the branch's first fix run. We rejected a positional test (the finding's line is in the fix diff), because a fix can break an untouched caller, and an old bug can sit next to a line a fix changed. We use the first fix run's base and not the latest one, so a bug that one fix run added and its re-review did not report is still Added by a fix when a later re-review finds it.
