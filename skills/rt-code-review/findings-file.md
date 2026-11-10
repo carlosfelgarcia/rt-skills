@@ -13,7 +13,6 @@
 - Head: <commit; PR mode: HEAD_SHA>
 - Uncommitted: <yes | no>
 - Reversibility: <Revert-safe | Revert with cleanup | One-way | unknown>
-- Lesson: <path | none>
 - Re-review: <only in a re-review: yes>
 
 ## Findings

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Render an rt-code-review run folder into the report, the findings file and the lesson.
+"""Render an rt-code-review run folder into the report and the findings file.
 
 Usage: render.py <run folder> [out dir, default /tmp/rt-code-review]
 """
 import datetime
 import html
-import json
 import pathlib
 import re
 import sys
@@ -226,17 +225,20 @@ def judge(fid, parts, rows=None):
     return d
 
 
-def card(d):
+def card(d, entries=()):
     score = d["reviewer_score"] if d["dismissed"] else d["score"]
     f = d["f"]
     diagram = None if d["dismissed"] else graph(f.get("Structure", ""))
     rows = [(k, md(f[k], block=False)) for k in ("Where", "What", "Why") if f.get(k)]
+    inside = [e for e in entries if d["id"] in e["finding_ids"]]
+    rows += [("In", " · ".join('<a href="#change-%d">%d. %s</a>' % (e["num"], e["num"], inline(e["title"]))
+                                for e in inside))] if inside else []
     rows += [("Fix", md(d["fix"], diagrams=False, block=False))] if d["fix"] else []
     rows += [("Structure", md(f["Structure"], block=False))] if f.get("Structure") and not diagram else []
     rows += [("Verification", d["verification"])] if d["verification"] else []
-    return ('<article class="finding %s"><h3><span class="id">%s</span> <span class="badge">%s</span> '
+    return ('<article class="finding %s" id="finding-%s"><h3><span class="id">%s</span> <span class="badge">%s</span> '
             '<span class="score">%d/10</span> %s%s</h3><dl>%s</dl>%s</article>') % (
-        band(score).lower(), d["id"], band(score), score, inline(d["title"]),
+        band(score).lower(), d["id"], d["id"], band(score), score, inline(d["title"]),
         "".join(' <span class="tag">%s</span>' % t for t in d["tags"]) + (
             ' <span class="tag origin">%s</span>' % esc(d["origin"][0].lower() + d["origin"][1:]) if d["origin"] else ""),
         "".join("<dt>%s</dt><dd>%s</dd>" % row for row in rows),
@@ -255,115 +257,107 @@ def load_findings(run, rows=None):
     return [judge(fid, p, rows) for fid, p in parts.items()]
 
 
-def lane(findings):
+def lane(findings, entries):
     shown = sorted((d for d in findings if not d["dismissed"]), key=lambda d: (-d["score"], d["num"]))
     gone = [d for d in findings if d["dismissed"]]
-    out = "".join(map(card, shown)) or '<p class="clean">No findings.</p>'
+    out = "".join(card(d, entries) for d in shown) or '<p class="clean">No findings.</p>'
     if gone:
         out += '<details class="dismissed"><summary>Dismissed by verification (%d)</summary>%s</details>' % (
-            len(gone), "".join(map(card, gone)))
+            len(gone), "".join(card(d, entries) for d in gone))
     return out
 
 
-# Summary, lesson, findings file
+# Summary, change entries, findings file
+
+def paths(text):
+    """The file paths in a Files or Where value, less any `:line` suffix."""
+    found = re.findall(r"`([^`]+)`", text or "") or re.split(r"[,\s]+", text or "")
+    return [re.sub(r"^\./|:[\d-]+$", "", p.strip()) for p in found if p.strip()]
+
+
+def same_file(a, b):
+    return a == b or a.endswith("/" + b) or b.endswith("/" + a)
+
+
+def change_entry(num, title, body):
+    parts = split(body, r"#### (Before|Now)\s*$")
+    _, f = fields(parts[0][1])
+    sides = {m.group(1).lower(): text for m, text in parts[1:]}
+    for side in ("before", "now"):
+        if side not in sides:
+            warnings.append("summary.md: change entry %d has no '#### %s' view" % (num, side.capitalize()))
+    if not f.get("Files"):
+        warnings.append("summary.md: change entry %d has no Files line, so no finding links to it" % num)
+    return dict(num=num, title=title, files=paths(f.get("Files")), why=f.get("Why", ""),
+                before=sides.get("before", ""), now=sides.get("now", ""), finding_ids=[])
+
 
 def load_summary(run):
+    """Overview HTML, change entries, Other changes HTML, reversibility level and notes."""
     path = run / "summary.md"
     if not path.exists():
         warnings.append("summary.md is missing")
-        return '<p class="clean">The change summariser returned nothing.</p>', None, ""
-    overview, views, level, notes = "", "", None, ""
+        return '<p class="clean">The change summariser returned nothing.</p>', [], "", None, ""
+    overview, entries, others, level, notes = "", [], "", None, ""
     for m, body in split(path.read_text(), r"### (.+?)\s*$"):
-        name = m.group(1).lower() if m else ""
-        if name == "overview":
+        name = m.group(1).strip() if m else ""
+        entry = re.match(r"(?i)change:\s*(.+)", name)
+        if name.lower() == "overview":
             overview = md(body)
-        elif name == "reversibility":
+        elif name.lower() == "reversibility":
             lv = re.match(r"(?:- \*\*)?Level:?\**:?\s*(.+)", body)
             level = LEVELS.get(lv.group(1).strip().lower().rstrip(".")) if lv else None
             notes = body[lv.end():] if lv else body
+        elif entry:
+            entries.append(change_entry(len(entries) + 1, entry.group(1), body))
+        elif name.lower() == "other changes":
+            others = md(body)
         elif m:
-            views += "<h3>%s</h3>%s" % (inline(m.group(1)), md(body))
+            overview += "<h3>%s</h3>%s" % (inline(name), md(body))
     if level is None:
         warnings.append("summary.md has no Reversibility level in the brief's shape")
-    return overview + views, level, notes
+    if not entries and not others:
+        warnings.append("summary.md has no change entries and no Other changes")
+    return overview, entries, others, level, notes
 
 
-def parse_quiz(body):
-    questions = []
-    for line in body.splitlines():
-        q, o, fb = re.match(r"\d+\.\s+(.*)", line), re.match(r"\s*-\s*\[([ xX])\]\s+(.*)", line), re.match(r"\s*>\s?(.*)", line)
-        if q:
-            questions.append({"text": inline(q.group(1)), "options": [], "answer": -1, "feedback": ""})
-        elif o and questions:
-            if o.group(1) != " ":
-                if questions[-1]["answer"] >= 0:
-                    raise RenderError("lesson.md: quiz question %d marks two answers" % len(questions))
-                questions[-1]["answer"] = len(questions[-1]["options"])
-            questions[-1]["options"].append(inline(o.group(2)))
-        elif fb and questions:
-            questions[-1]["feedback"] += inline(fb.group(1)) + " "
-    for i, q in enumerate(questions, 1):
-        if q["answer"] < 0:
-            raise RenderError("lesson.md: quiz question %d marks no answer with [x]" % i)
-    return questions
+def link_findings(entries, findings):
+    """Give each change entry the findings shown in the report whose file it lists."""
+    for e in entries:
+        mine = [d for d in findings if not d["dismissed"]
+                and any(same_file(w, f) for w in paths(d["f"].get("Where")) for f in e["files"])]
+        e["finding_ids"] = [d["id"] for d in sorted(mine, key=lambda d: (-d["score"], "ATQ".index(d["id"][0]), d["num"]))]
 
 
-def render_lesson(run, meta, report, date):
-    ws = pathlib.Path(meta.get("Learning workspace", "")).expanduser()
-    if not meta.get("Learning workspace"):
-        return None
-    if not ws.is_absolute():
-        raise RenderError("meta.md: Learning workspace must be an absolute path")
-    if not (run / "lesson.md").exists():
-        warnings.append("lesson.md is missing, so there is no lesson")
-        return None
-    s = {(m.group(1).split(":")[0].strip().lower() if m else ""): (m, body)
-         for m, body in split((run / "lesson.md").read_text(), r"### (.+?)\s*$")}
-    for need in ("lesson", "before", "now", "quiz"):
-        if need not in s:
-            raise RenderError("lesson.md has no '### %s' section" % need.capitalize())
-    title = s["lesson"][0].group(1).split(":", 1)[1].strip()
-    quiz = parse_quiz(s["quiz"][1])
-    if not quiz:
-        raise RenderError("lesson.md: the Quiz section has no questions")
-    sec = lambda name: s.get(name, (None, ""))[1]
-
-    (ws / "lessons").mkdir(parents=True, exist_ok=True)
-    number = 1 + max([int(p.name[:4]) for p in (ws / "lessons").glob("[0-9][0-9][0-9][0-9]-*")], default=0)
-    name = "%04d-%s" % (number, re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:50])
-    if sec("reference"):
-        (ws / "reference").mkdir(exist_ok=True)
-        (ws / "reference" / (name + ".md")).write_text("# From lesson %04d: %s\n\n%s\n" % (number, title, sec("reference")))
-
-    css, js = ((HERE / "lesson-assets" / f).read_text() for f in ("lesson.css", "quiz.js"))
-    out = ws / "lessons" / (name + ".html")
-    out.write_text(fill((HERE / "lesson-template.html").read_text(), {
-        "CSS": css, "QUIZ_JS": js, "LESSON_ID": "L%04d" % number, "TITLE": esc(title), "DATE": date,
-        "QUIZ_JSON": json.dumps({"id": "L%04d" % number, "questions": quiz}).replace("</", "<\\/"),
-        "WIN": inline(fields(sec("lesson"))[1].get("Win")), "TARGET": esc(meta["Target"]), "REPO": esc(meta["Repo"]),
-        "BEFORE": md(sec("before")), "NOW": md(sec("now")),
-        "WHY": md(sec("why it changed")) or "<p>The commits do not say.</p>",
-        "CONCEPTS": md(sec("concepts")) or "<p>None needed beyond the code above.</p>",
-        "READ_NEXT": md(sec("read next")), "INDEX_HREF": "../index.html", "REPORT_HREF": esc(report.as_uri()),
-    }))
-
-    lessons = "".join('<li><a href="lessons/%s">%s</a></li>' % (esc(p.name), re.search(r"<title>(.*?)</title>", p.read_text()).group(1))
-                      for p in sorted((ws / "lessons").glob("[0-9]*.html")))
-    refs = "".join("<section>%s</section>" % md(p.read_text().replace("# ", "", 1))
-                   for p in sorted((ws / "reference").glob("*.md"))) if (ws / "reference").exists() else ""
-    (ws / "index.html").write_text(
-        '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Lessons: %s</title><style>%s</style></head>'
-        "<body><main><h1>Lessons: %s</h1><h2>Lessons</h2><ol>%s</ol><h2>Reference</h2>%s</main></body></html>\n"
-        % (esc(meta["Repo"]), css, esc(meta["Repo"]), lessons, refs or "<p>No reference entries yet.</p>"))
-    return out
+def summary_html(overview, entries):
+    index = "".join('<li><a href="#change-%d">%s</a></li>' % (e["num"], inline(e["title"])) for e in entries)
+    return overview + ('<ol class="change-index">%s</ol>' % index if index else "")
 
 
-def findings_file(meta, findings, report, level, lesson, run):
+def changes_html(entries, others, by_id):
+    out = []
+    for e in entries:
+        found = " · ".join('<a href="#finding-%s">%s</a> (%d/10)' % (i, i, by_id[i]["score"]) for i in e["finding_ids"])
+        out.append(
+            '<article class="change" id="change-%d"><h3><span class="num">%d</span> %s</h3>%s'
+            '<div class="pair"><div><h4>Before</h4>%s</div><div><h4>Now</h4>%s</div></div>'
+            '<p class="meta">Files: %s</p>%s</article>' % (
+                e["num"], e["num"], inline(e["title"]),
+                '<p class="why">%s</p>' % inline(e["why"]) if e["why"] else "",
+                md(e["before"]), md(e["now"]),
+                ", ".join("<code>%s</code>" % esc(f) for f in e["files"]) or "none given",
+                '<p class="meta">Findings: %s</p>' % found if found else ""))
+    if others:
+        out.append('<h3 id="other-changes">Other changes</h3>' + others)
+    return "".join(out) or '<p class="clean">No change entries.</p>'
+
+
+def findings_file(meta, findings, report, level, run):
     out = ["# Findings: " + meta["Target"], ""]
     out += ["- %s: %s" % (k, v) for k, v in (
         ("Repo", meta["Repo"]), ("Branch", meta["Branch"]), ("Report", report),
         ("Stack", re.sub(r"\s*\(.*\)$", "", meta["Stack"])), ("Base", meta["Base"]), ("Head", meta["Head"]),
-        ("Uncommitted", meta["Uncommitted"]), ("Reversibility", level or "unknown"), ("Lesson", lesson or "none"))]
+        ("Uncommitted", meta["Uncommitted"]), ("Reversibility", level or "unknown"))]
     out += ["- Re-review: yes"] if meta.get("Re-review") == "yes" else []
     out += ["", "## Findings", ""] + ([] if findings else ["No findings.", ""])
     for d in sorted(findings, key=lambda d: ("ATQ".index(d["id"][0]), d["num"])):
@@ -389,31 +383,31 @@ def render(run, out_dir):
 
     heads, context = fix_context(run)
     findings = load_findings(run, context if meta.get("Re-review") == "yes" else None)
-    summary, level, notes = load_summary(run)
-    lesson = render_lesson(run, meta, report, date)
+    overview, entries, others, level, notes = load_summary(run)
+    link_findings(entries, findings)
     rev = '<span class="rev %s">%s</span>' % (LEVEL_CLASS[level], level) if level else ""
     values = {
         "TARGET_TITLE": esc(meta["Target"]), "REPO": esc(meta["Repo"]), "MODE": esc(meta["Mode"]),
         "STACK": esc(meta["Stack"]), "STACK_SETTINGS": esc(meta.get("Stack settings", "none")),
-        "BASE": esc(meta["Base"]), "HEAD": esc(meta["Head"]), "DATE": date, "SUMMARY": summary,
+        "BASE": esc(meta["Base"]), "HEAD": esc(meta["Head"]), "DATE": date,
+        "SUMMARY": summary_html(overview, entries), "CHANGES": changes_html(entries, others, {d["id"]: d for d in findings}),
         "RE_REVIEW": " · re-review of one fix run" if meta.get("Re-review") == "yes" else "",
         "REVERSIBILITY_BADGE": " · " + rev if rev else "",
         "REVERSIBILITY": "<p>%s</p>%s" % (rev, md(notes)) if rev else '<p class="clean">No reversibility given.</p>',
-        "LESSON_LINK": ' · <a href="%s">Lesson</a>' % esc(lesson.as_uri()) if lesson else "",
         "EARLIER": ('<section id="earlier"><h2>Earlier findings</h2><table class="earlier"><tr>%s</tr>%s</table></section>' % (
             "".join("<th>%s</th>" % esc(h) for h in heads),
             "".join("<tr>%s</tr>" % "".join("<td>%s</td>" % inline(row.get(h, "")) for h in heads) for row in context))) if context else "",
     }
     for letter, key in LANES.items():
         mine = [d for d in findings if d["id"][0] == letter]
-        values["FINDINGS_" + key] = lane(mine)
+        values["FINDINGS_" + key] = lane(mine, entries)
         for b in ("Blocking", "Should-fix", "Nit"):
             values["%s_%s" % (key, b.upper().replace("-", "_"))] = str(sum(1 for d in mine if not d["dismissed"] and band(d["score"]) == b))
         values[key + "_DISMISSED"] = str(sum(d["dismissed"] for d in mine))
 
     report.write_text(fill((HERE / "report-template.html").read_text(), values))
-    findings_md.write_text(findings_file(meta, findings, report, level, lesson, run))
-    return report, findings_md, lesson, findings
+    findings_md.write_text(findings_file(meta, findings, report, level, run))
+    return report, findings_md, findings
 
 
 def main(argv):
@@ -421,12 +415,12 @@ def main(argv):
         print(__doc__.strip(), file=sys.stderr)
         return 2
     try:
-        report, findings_md, lesson, findings = render(
+        report, findings_md, findings = render(
             pathlib.Path(argv[1]).absolute(), pathlib.Path(argv[2] if len(argv) == 3 else "/tmp/rt-code-review"))
     except RenderError as e:
         print("error: %s" % e, file=sys.stderr)
         return 1
-    print("report: %s\nfindings: %s\nlesson: %s" % (report, findings_md, lesson or "none"))
+    print("report: %s\nfindings: %s" % (report, findings_md))
     for d in findings:
         print("finding: %s %s %d/10%s" % (d["id"], d["status"], d["score"], " · " + d["origin"] if d["origin"] else ""))
     print("".join("warning: %s\n" % w for w in warnings), end="")

@@ -7,4 +7,3 @@
 - Base: 1111111
 - Head: 2222222
 - Uncommitted: no
-- Learning workspace: LEARNING_WORKSPACE
