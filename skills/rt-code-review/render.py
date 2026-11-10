@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Render an rt-code-review run folder into the report and the findings file.
 
+A run folder whose meta.md has `- Walkthrough: yes` is an rt-walkthrough: the page has the change
+summary only, and no findings file is written. `- Stack: none` leaves out the reversibility section.
+
 Usage: render.py <run folder> [out dir, default /tmp/rt-code-review]
 """
 import datetime
@@ -127,6 +130,14 @@ def graph(structure):
         edges += zip(names, names[1:])
     node = lambda n: '%s["%s"]' % (ids.setdefault(n, "n%d" % len(ids)), n.replace('"', "'"))
     return "graph LR\n" + "\n".join("  %s --> %s" % (node(a), node(b)) for a, b in edges) if edges else None
+
+
+def keep(template, parts):
+    """Keep or drop each `<!-- if <part> -->` … `<!-- end <part> -->` block, as `parts` says."""
+    for name, wanted in parts.items():
+        block = r"[ \t]*<!-- if %s -->\n(.*?)[ \t]*<!-- end %s -->\n" % (name, name)
+        template = re.sub(block, (lambda m: m.group(1)) if wanted else "", template, flags=re.S)
+    return template
 
 
 def fill(template, values):
@@ -292,7 +303,7 @@ def change_entry(num, title, body):
                 before=sides.get("before", ""), now=sides.get("now", ""), finding_ids=[])
 
 
-def load_summary(run):
+def load_summary(run, has_stack=True):
     """Overview HTML, change entries, Other changes HTML, reversibility level and notes."""
     path = run / "summary.md"
     if not path.exists():
@@ -314,7 +325,7 @@ def load_summary(run):
             others = md(body)
         elif m:
             overview += "<h3>%s</h3>%s" % (inline(name), md(body))
-    if level is None:
+    if level is None and has_stack:
         warnings.append("summary.md has no Reversibility level in the brief's shape")
     if not entries and not others:
         warnings.append("summary.md has no change entries and no Other changes")
@@ -377,22 +388,23 @@ def render(run, out_dir):
     for key in ("Target", "Repo", "Branch", "Mode", "Stack", "Base", "Head", "Uncommitted"):
         if not meta.get(key):
             raise RenderError("meta.md has no '- %s:' line" % key)
+    walkthrough, has_stack = meta.get("Walkthrough") == "yes", not re.match(r"none\b", meta["Stack"])
     out_dir.mkdir(parents=True, exist_ok=True)
     report, findings_md = out_dir.absolute() / (run.name + ".html"), out_dir.absolute() / (run.name + ".findings.md")
     date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     heads, context = fix_context(run)
-    findings = load_findings(run, context if meta.get("Re-review") == "yes" else None)
-    overview, entries, others, level, notes = load_summary(run)
+    findings = [] if walkthrough else load_findings(run, context if meta.get("Re-review") == "yes" else None)
+    overview, entries, others, level, notes = load_summary(run, has_stack)
     link_findings(entries, findings)
     rev = '<span class="rev %s">%s</span>' % (LEVEL_CLASS[level], level) if level else ""
     values = {
-        "TARGET_TITLE": esc(meta["Target"]), "REPO": esc(meta["Repo"]), "MODE": esc(meta["Mode"]),
+        "KIND": "Walkthrough" if walkthrough else "Code review", "TARGET_TITLE": esc(meta["Target"]), "REPO": esc(meta["Repo"]), "MODE": esc(meta["Mode"]),
         "STACK": esc(meta["Stack"]), "STACK_SETTINGS": esc(meta.get("Stack settings", "none")),
         "BASE": esc(meta["Base"]), "HEAD": esc(meta["Head"]), "DATE": date,
         "SUMMARY": summary_html(overview, entries), "CHANGES": changes_html(entries, others, {d["id"]: d for d in findings}),
         "RE_REVIEW": " · re-review of one fix run" if meta.get("Re-review") == "yes" else "",
-        "REVERSIBILITY_BADGE": " · " + rev if rev else "",
+        "REVERSIBILITY_BADGE": " · " + rev if rev and has_stack else "",
         "REVERSIBILITY": "<p>%s</p>%s" % (rev, md(notes)) if rev else '<p class="clean">No reversibility given.</p>',
         "EARLIER": ('<section id="earlier"><h2>Earlier findings</h2><table class="earlier"><tr>%s</tr>%s</table></section>' % (
             "".join("<th>%s</th>" % esc(h) for h in heads),
@@ -405,7 +417,10 @@ def render(run, out_dir):
             values["%s_%s" % (key, b.upper().replace("-", "_"))] = str(sum(1 for d in mine if not d["dismissed"] and band(d["score"]) == b))
         values[key + "_DISMISSED"] = str(sum(d["dismissed"] for d in mine))
 
-    report.write_text(fill((HERE / "report-template.html").read_text(), values))
+    template = keep((HERE / "report-template.html").read_text(), {"review": not walkthrough, "reversibility": has_stack})
+    report.write_text(fill(template, values))
+    if walkthrough:
+        return report, None, findings
     findings_md.write_text(findings_file(meta, findings, report, level, run))
     return report, findings_md, findings
 
@@ -420,7 +435,7 @@ def main(argv):
     except RenderError as e:
         print("error: %s" % e, file=sys.stderr)
         return 1
-    print("report: %s\nfindings: %s" % (report, findings_md))
+    print("report: %s" % report + ("\nfindings: %s" % findings_md if findings_md else ""))
     for d in findings:
         print("finding: %s %s %d/10%s" % (d["id"], d["status"], d["score"], " · " + d["origin"] if d["origin"] else ""))
     print("".join("warning: %s\n" % w for w in warnings), end="")

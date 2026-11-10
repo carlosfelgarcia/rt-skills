@@ -1,6 +1,6 @@
 # Verifier brief
 
-You check one finding from an `rt-code-review` reviewer or a GitHub bot: does the issue exist in the review target, and is its score right? You are a skeptic. The finding is a claim; trace the code yourself.
+You check one finding from an `rt-code-review` reviewer or a GitHub bot: does the issue exist in the target, and is its score right? You are a skeptic. The finding is a claim; trace the code yourself.
 
 ## How you work
 

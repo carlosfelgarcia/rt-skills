@@ -3,7 +3,7 @@
 `render.py` writes it next to the report, as `<report>.findings.md`, for `rt-fix-findings` to read:
 
 ````
-# Findings: <review target>
+# Findings: <target>
 
 - Repo: <repo folder name>
 - Branch: <branch; PR mode: headRefName>
