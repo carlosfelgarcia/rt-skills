@@ -100,9 +100,9 @@ In a report run, write each finding's result into the findings file as its `Outc
 
 ## 10. Re-review
 
-With no commits since `PRE_FIX`, or a remaining failure of the fixes, skip the re-review and record why. Otherwise follow all of `<review folder>/SKILL.md` as a re-review, with `PRE_FIX` as the ref, the stack, and this fix context. Its review target is then only this run's commits.
+With no commits since `PRE_FIX`, or a remaining failure of the fixes, skip the re-review and record why. Otherwise follow all of `<review folder>/SKILL.md` as a re-review, with `PRE_FIX` as the ref, the stack, and this fix context. Its target is then only this run's commits.
 
-**Done when** the re-review's report is shown and its findings file is written, or the skip and its reason are recorded.
+**Done when** the re-review's report and findings file are written, or the skip and its reason are recorded.
 
 ## 11. Summarise
 
@@ -140,7 +140,7 @@ Notes dropped: <n>
 Suggested replies, to post after you push:
 - <ID>: <one sentence for the bot>
 
-Reports: <source report> · <re-review report>
+Reports: [<source report file name>](<source report path>) · [<re-review report file name>](<re-review report path>)
 
 Next step: <one recommendation>
 ```

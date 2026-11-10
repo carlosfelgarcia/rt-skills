@@ -175,6 +175,58 @@ class RenderReReview(unittest.TestCase):
         self.assertIn("finding: Q1 Confirmed (Proven) 6/10 · Added by a fix\n", out.getvalue())
 
 
+SUMMARY = ("### Overview\nThe composer saves drafts.\n\n### Change: Save the draft on close\n"
+           "- **Files:** `Sources/A.swift`\n- **Why:** Drafts were lost.\n\n#### Before\nNothing saved.\n```text\nclose()\n```\n\n"
+           "#### Now\nIt saves.\n```text\nclose() -> save()\n```\n")
+
+
+class RenderWalkthrough(unittest.TestCase):
+    """A walkthrough: meta.md says so, so the page has the change summary and nothing that judges code."""
+
+    def walk(self, stack, summary=SUMMARY):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+        run = self.tmp / "walk-run"
+        run.mkdir()
+        (run / "meta.md").write_text(
+            "- Target: PR #7 (PR)\n- Repo: demo-app\n- Branch: feature/x\n- Mode: PR\n- Stack: %s\n"
+            "- Base: 3333333\n- Head: 4444444\n- Uncommitted: no\n- Walkthrough: yes\n" % stack)
+        (run / "summary.md").write_text(summary)
+        del render.warnings[:]
+        report, findings_md, findings = render.render(run, self.tmp / "out")
+        return report, findings_md, findings, report.read_text()
+
+    def test_the_page_shows_the_change_summary_and_no_review(self):
+        report, findings_md, findings, html = self.walk("none")
+        self.assertEqual(report.name, "walk-run.html")
+        self.assertEqual((findings_md, findings), (None, []))
+        self.assertEqual(sorted(p.name for p in report.parent.iterdir()), ["walk-run.html"])
+        self.assertIn("<h1>Walkthrough: PR #7 (PR)</h1>", html)
+        self.assertIn('<ol class="change-index"><li><a href="#change-1">Save the draft on close</a></li></ol>', html)
+        self.assertNotIn("<th>Reviewer</th>", html)
+        self.assertNotIn('id="architecture"', html)
+        self.assertNotRegex(html, r"\{\{[A-Z_]+\}\}|<!-- (if|end) ")
+
+    def test_without_a_stack_there_is_no_reversibility(self):
+        _, _, _, html = self.walk("none")
+        self.assertNotIn('id="reversibility"', html)
+        self.assertNotIn("summary.md has no Reversibility level in the brief's shape", render.warnings)
+
+    def test_with_a_stack_the_reversibility_shows(self):
+        _, _, _, html = self.walk("pipeline (argument)", SUMMARY + "\n### Reversibility\nLevel: One-way\n"
+                                  "- `package.py:3`: a released version stays resolvable.\n")
+        self.assertIn('<section class="reversibility" id="reversibility">', html)
+        self.assertIn('<span class="rev oneway">One-way</span>', html)
+        self.assertIn("a released version stays resolvable.", html)
+
+    def test_the_status_lines_name_the_page_only(self):
+        report, _, _, _ = self.walk("none")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            render.main(["render.py", str(report.parent.parent / "walk-run"), str(report.parent)])
+        self.assertEqual(out.getvalue(), "report: %s\n" % report)
+
+
 class RenderPieces(unittest.TestCase):
     def test_pieces(self):
         _, f = render.fields("### t\n- **Fix:**\n  ```diff\n  -<a>\n  ```\n- **What:** x")

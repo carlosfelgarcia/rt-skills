@@ -16,28 +16,32 @@ _Avoid_: coverage reviewer
 The code reviewer that judges whether the production code in a change works.
 _Avoid_: Q&A reviewer, quality reviewer
 
-**Review target**:
-The change a code review judges.
-_Avoid_: scope, input
+**Target**:
+The change a code review judges or a walkthrough explains.
+_Avoid_: review target, scope, input
 
 **Change summary**:
-The first section of a code review report: an overview of the review target, its reversibility, a change entry for each behavior change, and a list of the other changes. It judges no code.
+An overview of the target, its reversibility when its stack is known, a change entry for each behavior change, and a list of the other changes. It opens a code review report and is the whole of a walkthrough. It judges no code.
 _Avoid_: description, changelog
 
 **Change entry**:
-One behavior change that the review target makes, in the change summary: how it worked at BASE, how it works at the head, and why it changed. Small mechanical edits get no change entry.
+One behavior change that the target makes, in the change summary: how it worked at BASE, how it works at the head, and why it changed. Small mechanical edits get no change entry.
 _Avoid_: bug, lesson, item
 
 **Stack**:
-The kind of codebase a review target belongs to, such as a Swift app or a pipeline package. It picks the rule sets the three reviewers apply.
+The kind of codebase a target belongs to, such as a Swift app or a pipeline package. It picks the rule sets the three reviewers apply.
 _Avoid_: language, platform, profile
 
 **Change summariser**:
-The agent that writes the change summary while the three reviewers work.
+The agent that writes the change summary: in a code review while the three reviewers work, and alone in a walkthrough.
 _Avoid_: fourth reviewer, summary reviewer
 
+**Walkthrough**:
+A change summary of a change on its own, to understand it: no reviewers, no verifiers and no findings. The stack is optional.
+_Avoid_: read-only review, light review, explanation
+
 **Reversibility**:
-How far a `git revert` of the whole review target takes the world back: **Revert-safe** (it restores everything), **Revert with cleanup** (something the change wrote stays behind in the new shape and needs a step to clean up) or **One-way** (a revert cannot undo part of it). Each stack file lists its triggers.
+How far a `git revert` of the whole target takes the world back: **Revert-safe** (it restores everything), **Revert with cleanup** (something the change wrote stays behind in the new shape and needs a step to clean up) or **One-way** (a revert cannot undo part of it). Each stack file lists its triggers.
 _Avoid_: risk, blast radius, severity of the change
 
 **Verifier**:
@@ -65,7 +69,7 @@ The lane letter and number that names one finding within one report, such as `Q2
 _Avoid_: finding number, key
 
 **Findings file**:
-The record a code review leaves next to its report: the review target and every finding with its ID, verdict and fix. It is what a later step reads, because the report is written for people.
+The record a code review leaves next to its report: the target and every finding with its ID, verdict and fix. It is what a later step reads, because the report is written for people.
 _Avoid_: findings export, report data
 
 **Bot finding**:

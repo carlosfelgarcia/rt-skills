@@ -1,13 +1,14 @@
 <!doctype html>
 <!--
-  rt-code-review report template. render.py fills each placeholder in double braces; edit the
-  page layout here and the card markup in render.py.
+  Page template for rt-code-review reports and rt-walkthrough pages. render.py fills each placeholder
+  in double braces and drops each "if <part>" block the page does not have; edit the page layout here
+  and the card markup in render.py.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Code review: {{TARGET_TITLE}}</title>
+<title>{{KIND}}: {{TARGET_TITLE}}</title>
 <style>
   /* Colors follow the theme inside T3, and fall back to a light page in a browser */
   * { box-sizing: border-box; }
@@ -83,17 +84,19 @@
 <body>
 <main>
 <header>
-  <h1>Code review: {{TARGET_TITLE}}</h1>
+  <h1>{{KIND}}: {{TARGET_TITLE}}</h1>
   <div class="meta">
     {{REPO}} · {{MODE}} · stack {{STACK}} · base <code>{{BASE}}</code> · head <code>{{HEAD}}</code>{{RE_REVIEW}} · {{DATE}}{{REVERSIBILITY_BADGE}}
   </div>
   <div class="meta">Stack settings: {{STACK_SETTINGS}}</div>
+  <!-- if review -->
   <table class="counts">
     <tr><th>Reviewer</th><th>Blocking</th><th>Should-fix</th><th>Nit</th><th>Dismissed</th></tr>
     <tr><td><a href="#architecture">Architecture</a></td><td>{{ARCHITECTURE_BLOCKING}}</td><td>{{ARCHITECTURE_SHOULD_FIX}}</td><td>{{ARCHITECTURE_NIT}}</td><td>{{ARCHITECTURE_DISMISSED}}</td></tr>
     <tr><td><a href="#tests">Tests</a></td><td>{{TESTS_BLOCKING}}</td><td>{{TESTS_SHOULD_FIX}}</td><td>{{TESTS_NIT}}</td><td>{{TESTS_DISMISSED}}</td></tr>
     <tr><td><a href="#qa">QA</a></td><td>{{QA_BLOCKING}}</td><td>{{QA_SHOULD_FIX}}</td><td>{{QA_NIT}}</td><td>{{QA_DISMISSED}}</td></tr>
   </table>
+  <!-- end review -->
 </header>
 
 <section class="summary" id="summary">
@@ -101,16 +104,19 @@
   {{SUMMARY}}
 </section>
 
+<!-- if reversibility -->
 <section class="reversibility" id="reversibility">
   <h2>Reversibility</h2>
   {{REVERSIBILITY}}
 </section>
+<!-- end reversibility -->
 
 <section class="changes" id="changes">
   <h2>Changes</h2>
   {{CHANGES}}
 </section>
 
+<!-- if review -->
 <section class="reviewer" id="architecture">
   <h2>Architecture reviewer</h2>
   {{FINDINGS_ARCHITECTURE}}
@@ -127,6 +133,7 @@
 </section>
 
 {{EARLIER}}
+<!-- end review -->
 </main>
 <script>
   // Inside T3 the theme variables exist: the page then follows the thread's theme
