@@ -1,13 +1,13 @@
 ---
 name: rt-code-review
-description: Review a change in a Swift app or pipeline package with three reviewers and a verifier per finding, then open an HTML report and a lesson.
+description: Review a change in a Swift app or pipeline package with three reviewers and a verifier per finding, then open an HTML report that shows every change before and after.
 disable-model-invocation: true
 argument-hint: "[PR number | ref] [stack]"
 ---
 
 # RT code review
 
-Three reviewers judge one **review target** in parallel, one lane each, using the rule sets of its **stack** (a folder in [`stacks/`](stacks/)). Alongside them, a change summariser writes the **change summary** and a lesson writer writes the **lesson**. A **verifier** then checks every finding and its **score**. `<skill>` below means this skill's base directory.
+Three reviewers judge one **review target** in parallel, one lane each, using the rule sets of its **stack** (a folder in [`stacks/`](stacks/)). Alongside them, a change summariser writes the **change summary**: a **change entry** for each behavior change, before and after. A **verifier** then checks every finding and its **score**. `<skill>` below means this skill's base directory.
 
 ## 1. Resolve the review target
 
@@ -35,11 +35,8 @@ One message, one `Agent` call each, no model override. Every prompt is: the targ
 |---|---|---|
 | Architecture, Test and QA reviewer (`rt-skills:rt-reviewer`) | `<skill>/reviewer-brief.md`, `<skill>/score.md`, `<skill>/stacks/<stack>/stack.md`, and the lane's rule files `<skill>/rules/<lane>.md` and `<skill>/stacks/<stack>/<lane>.md`, `<lane>` being `architecture`, `test` or `qa` | findings |
 | Change summariser (`rt-skills:rt-change-summariser`) | `<skill>/change-summariser.md` and `<skill>/stacks/<stack>/reversibility.md` | the change summary |
-| Lesson writer (`rt-skills:rt-lesson-writer`) | `<skill>/lesson-writer.md`, `<skill>/stacks/<stack>/resources.md`; add "The learning workspace is `<workspace>`." | the lesson |
 
-The **learning workspace** is the absolute path of `$HOME/.rt-skills/learning/<repo>/`, `<repo>` being the repo root's folder name.
-
-In a re-review, `rt-fix-findings` passes a **fix context**. Add its header and the rows of its highest `Run` to each reviewer's prompt before the return line, and start no lesson writer.
+In a re-review, `rt-fix-findings` passes a **fix context**. Add its header and the rows of its highest `Run` to each reviewer's prompt before the return line.
 
 **Done when** every agent has returned.
 
@@ -65,18 +62,18 @@ A finding's **status** is its verdict, with its proof for Confirmed and Regraded
 
 In `/tmp/rt-code-review/runs/<repo>-<branch or prN>-<YYYYmmdd-HHMMSS>/` (`/` in the branch becomes `-`), write each file with one `Write`, agent text verbatim:
 
-- `meta.md`: `- Key: value` lines for `Target` (one line), `Repo` (folder name), `Branch` (PR mode: headRefName), `Mode`, `Stack` (as in the target block), `Stack settings` (one line), `Base`, `Head` (PR mode: HEAD_SHA), `Uncommitted` (`yes` when Branch work reviewed uncommitted or untracked files), `Learning workspace` when a lesson writer ran, and `Re-review: yes` in a re-review.
-- `summary.md`, and `lesson.md` when a lesson writer ran.
+- `meta.md`: `- Key: value` lines for `Target` (one line), `Repo` (folder name), `Branch` (PR mode: headRefName), `Mode`, `Stack` (as in the target block), `Stack settings` (one line), `Base`, `Head` (PR mode: HEAD_SHA), `Uncommitted` (`yes` when Branch work reviewed uncommitted or untracked files), and `Re-review: yes` in a re-review.
+- `summary.md`.
 - `findings.md`, when there are findings: per ID in order, `=== <ID> finding` and its block, `=== <ID> verdict` and its block (unless the verifier failed), `=== <ID> probe` and its result (Unproven only).
 - `fix-context.md`, in a re-review: every row `rt-fix-findings` passes.
 
-Run `python3 <skill>/render.py <run folder>`. It writes the report, the **findings file** ([`findings-file.md`](findings-file.md)) and the lesson, and prints their paths and one status line per finding, with its **origin** in a re-review. On `error:`, fix the named input and rerun.
+Run `python3 <skill>/render.py <run folder>`. It writes the report and the **findings file** ([`findings-file.md`](findings-file.md)), links each finding to the change entries that list its file, and prints both paths and one status line per finding, with its **origin** in a re-review. On `error:`, fix the named input and rerun.
 
 **Done when** it exits 0.
 
 ## 5. Show and reply
 
-Inside T3 (`html_render`, loadable with ToolSearch `select:mcp__t3-code__html_render`), render the report's full HTML once with title `Code review: <target>` and `height: 2000`, then the lesson's with title `Lesson: <title>`. Elsewhere, open both with `open` (Darwin) or `xdg-open` (Linux). When `rt-fix-findings` started this review, stop here. Otherwise reply with only:
+Inside T3 (`html_render`, loadable with ToolSearch `select:mcp__t3-code__html_render`), render the report's full HTML once with title `Code review: <target>` and `height: 2000`. Elsewhere, open it with `open` (Darwin) or `xdg-open` (Linux). When `rt-fix-findings` started this review, stop here. Otherwise reply with only:
 
 ```
 <target> · stack: <stack> (<detected | argument>) · <reversibility level>
@@ -93,11 +90,6 @@ Blocking:
 Reversibility: <only when not Revert-safe: one line per trigger>
 
 Report: <path>
-Lesson: <path>. When you finish its quiz, paste the result line here.
 ```
 
 Counts use scores after step 3 and leave out dismissed findings. Write "Blocking: none" when empty.
-
-## 6. Learning records
-
-For the rest of the conversation, when the developer pastes a quiz result, asks about the lesson, or says what they know, follow [`learning-record.md`](learning-record.md).

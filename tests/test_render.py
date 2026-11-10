@@ -18,9 +18,7 @@ class RenderFixture(unittest.TestCase):
         self.tmp = pathlib.Path(tempfile.mkdtemp())
         self.run = self.tmp / "demo-run"
         shutil.copytree(HERE / "fixtures" / "run", self.run)
-        meta = self.run / "meta.md"
-        meta.write_text(meta.read_text().replace("LEARNING_WORKSPACE", str(self.tmp / "learning")))
-        self.report, self.findings_md, self.lesson, findings = render.render(self.run, self.tmp / "out")
+        self.report, self.findings_md, findings = render.render(self.run, self.tmp / "out")
         self.html = self.report.read_text()
         self.by_id = {d["id"]: d for d in findings}
 
@@ -42,7 +40,6 @@ class RenderFixture(unittest.TestCase):
         self.assertLess(qa.index(">Q2<"), qa.index(">Q1<"))
         self.assertIn("<td>1</td><td>0</td><td>1</td><td>0</td>", self.html)
         self.assertIn('class="rev cleanup"', self.html)
-        self.assertIn(self.lesson.as_uri(), self.html)
         self.assertIn("Score 2 below threshold 4", self.html)
         self.assertNotRegex(self.html, r"\{\{[A-Z_]+\}\}")
 
@@ -54,14 +51,28 @@ class RenderFixture(unittest.TestCase):
         self.assertIn("## Fix context", text)
         self.assertNotIn("**Origin:**", text)
         self.assertNotIn("Re-review", text)
+        self.assertNotIn("Lesson", text)
 
-    def test_lesson(self):
-        page = self.lesson.read_text()
-        self.assertTrue(self.lesson.name.startswith("0001-"))
-        self.assertIn('"id": "L0001"', page)
-        self.assertNotRegex(page, r"\{\{[A-Z_]+\}\}")
-        self.assertTrue((self.tmp / "learning" / "index.html").exists())
-        self.assertTrue(render.render(self.run, self.tmp / "out")[2].name.startswith("0002-"))
+    def test_change_entries(self):
+        self.assertIn('<ol class="change-index"><li><a href="#change-1">Save the draft when the composer closes</a></li>'
+                      '<li><a href="#change-2">Write drafts in the version 2 shape</a></li></ol>', self.html)
+        second = self.html[self.html.index('id="change-2"'):]
+        self.assertLess(second.index("<h4>Before</h4>"), second.index("<h4>Now</h4>"))
+        self.assertIn('<pre class="mermaid">graph LR', second)
+        self.assertIn("<code>Sources/Drafts/DraftStore.swift</code>, <code>Tests/DraftStoreTests.swift</code>", second)
+        self.assertIn('id="other-changes"', self.html)
+        self.assertLess(self.html.index('id="changes"'), self.html.index('id="architecture"'))
+
+    def test_findings_link_to_the_entries_that_list_their_file(self):
+        first = self.html[self.html.index('id="change-1"'):self.html.index('id="change-2"')]
+        self.assertIn('Findings: <a href="#finding-Q2">Q2</a> (8/10) · <a href="#finding-Q1">Q1</a> (7/10) · '
+                      '<a href="#finding-A1">A1</a> (5/10)</p>', first)
+        self.assertNotIn("A2", first)
+        q1 = self.html[self.html.index('id="finding-Q1"'):]
+        self.assertIn('<dt>In</dt><dd><a href="#change-1">1. Save the draft when the composer closes</a> · '
+                      '<a href="#change-2">2. Write drafts in the version 2 shape</a></dd>', q1[:q1.index("</article>")])
+        a2 = self.html[self.html.index('id="finding-A2"'):]
+        self.assertNotIn("<dt>In</dt>", a2[:a2.index("</article>")])
 
 
 def finding(fid, origin=None, at_base=None, verdict="Confirmed"):
@@ -94,7 +105,7 @@ class RenderReReview(unittest.TestCase):
         (self.run_dir / "findings.md").write_text("".join(findings))
         if context:
             (self.run_dir / "fix-context.md").write_text(context)
-        report, findings_md, _, out = render.render(self.run_dir, self.tmp / "out")
+        report, findings_md, out = render.render(self.run_dir, self.tmp / "out")
         return report.read_text(), findings_md.read_text(), {d["id"]: d for d in out}
 
     def origins(self, *findings):
@@ -172,9 +183,16 @@ class RenderPieces(unittest.TestCase):
         self.assertEqual(render.fill("{{A}}", {"A": "{{B}}"}), "{{B}}")
         self.assertEqual(render.graph("`A -> B -> C`").count("-->"), 2)
         self.assertEqual([render.band(s) for s in (3, 4, 7, 8)], ["Nit", "Should-fix", "Should-fix", "Blocking"])
-        for quiz in ("1. Q\n - [ ] a\n - [ ] b", "1. Q\n - [x] a\n - [x] b"):
-            with self.assertRaises(render.RenderError):
-                render.parse_quiz(quiz)
+        self.assertEqual(render.paths("`./Sources/A.swift:12`, as in the example"), ["Sources/A.swift"])
+        self.assertEqual(render.paths("Sources/A.swift, .github/ci.yml:3-9"), ["Sources/A.swift", ".github/ci.yml"])
+        self.assertTrue(render.same_file("App/Sources/A.swift", "Sources/A.swift"))
+        self.assertFalse(render.same_file("Sources/BA.swift", "A.swift"))
+
+    def test_an_entry_with_a_missing_part_renders_with_a_warning(self):
+        e = render.change_entry(3, "t", "- **Why:** w.\n\n#### Before\nOld.")
+        self.assertEqual((e["before"], e["now"], e["files"]), ("Old.", "", []))
+        self.assertIn("summary.md: change entry 3 has no '#### Now' view", render.warnings)
+        self.assertIn("summary.md: change entry 3 has no Files line, so no finding links to it", render.warnings)
         self.assertEqual(render.judge("T9", {"finding": "### t\n- **Score:** 5",
                                              "verdict": "- **Verdict:** Regraded\n- **Proof:** Proven"})["status"], "Unverified")
 

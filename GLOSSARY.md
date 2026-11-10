@@ -21,8 +21,12 @@ The change a code review judges.
 _Avoid_: scope, input
 
 **Change summary**:
-The first section of a code review report: a short overview, the change's reversibility, and up to three diagrams of what the review target changes. It judges no code.
+The first section of a code review report: an overview of the review target, its reversibility, a change entry for each behavior change, and a list of the other changes. It judges no code.
 _Avoid_: description, changelog
+
+**Change entry**:
+One behavior change that the review target makes, in the change summary: how it worked at BASE, how it works at the head, and why it changed. Small mechanical edits get no change entry.
+_Avoid_: bug, lesson, item
 
 **Stack**:
 The kind of codebase a review target belongs to, such as a Swift app or a pipeline package. It picks the rule sets the three reviewers apply.
@@ -35,22 +39,6 @@ _Avoid_: fourth reviewer, summary reviewer
 **Reversibility**:
 How far a `git revert` of the whole review target takes the world back: **Revert-safe** (it restores everything), **Revert with cleanup** (something the change wrote stays behind in the new shape and needs a step to clean up) or **One-way** (a revert cannot undo part of it). Each stack file lists its triggers.
 _Avoid_: risk, blast radius, severity of the change
-
-**Lesson**:
-A short HTML page, written for each code review except a re-review, that teaches the developer one thing about the code the review target touches: how it worked before, how it works now, why, and a quiz. It judges nothing.
-_Avoid_: tutorial, explainer, walkthrough
-
-**Lesson writer**:
-The agent that writes the lesson while the three reviewers work. It never sees the findings.
-_Avoid_: teacher, tutor
-
-**Learning workspace**:
-The folder outside the reviewed repo, `~/.rt-skills/learning/<repo>/`, that holds one developer's lessons, reference entries, learning records and optional mission for one repo.
-_Avoid_: notes folder, lesson cache
-
-**Learning record**:
-A note in the learning workspace of one thing the developer has shown they know, said they know, or corrected, written only on evidence such as a quiz result line. The lesson writer reads them to pick the next lesson.
-_Avoid_: progress log, lesson history
 
 **Verifier**:
 The agent that checks one finding, whatever its score, and gives it a verdict.

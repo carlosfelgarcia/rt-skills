@@ -1,5 +1,7 @@
 # A lesson for each review, written apart from the findings
 
+Status: superseded by ADR 0011, which shows every change in the change summary and writes no lesson.
+
 Code review is where a developer learns the codebase, but the report only says what is wrong. Each review now also writes a **lesson**: a short page, modelled on the `teach` skill, that teaches one thing about the code the change touches (how it worked at BASE, how it works now, why) and ends with a quiz. A **lesson writer** agent writes it in the same batch as the reviewers.
 
 ## Consequences
