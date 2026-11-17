@@ -133,3 +133,37 @@ _Avoid_: major, warning
 **Nit**:
 The band for scores 1 to 3: a finding about taste, or a wrong comment or name with no effect on behavior.
 _Avoid_: minor, suggestion
+
+### Test audit
+
+**Test audit**:
+A deliberate pass over existing tests that removes or repairs the ones that cannot catch a defect or repeat proof another test already gives, with the production code only they use. It judges tests that already exist, not a change.
+_Avoid_: test cleanup, test review, pruning
+
+**Campaign**:
+A test audit of a whole subsystem in one branch, batch by batch, ending with a check that no contract lost its only proof.
+_Avoid_: sweep, big audit
+
+**Batch**:
+The tests of one production owner, which a test audit judges and edits together, in one commit.
+_Avoid_: lane, slice, group
+
+**Contract**:
+One behavior that callers of the code rely on and can observe, such as a result, a stored record, a message sent or an order of events.
+_Avoid_: feature, case, requirement
+
+**Owner**:
+The production code that a contract belongs to, and the strongest place a test can prove it.
+_Avoid_: module, unit, subject
+
+**Keeper**:
+The one test or suite that proves a contract after a test audit; other tests of the same contract are merged into it or deleted.
+_Avoid_: canonical test, survivor
+
+**Ledger**:
+The written record of a campaign batch: every test in it with its mark (Retain, Fix, Consolidate or Delete) and the evidence for the mark.
+_Avoid_: inventory, audit log
+
+**Test-only seam**:
+Production code that only tests call, such as an export, a reset hook, a flag or an injection parameter. A test audit deletes it along with the tests that needed it.
+_Avoid_: test hook, backdoor
