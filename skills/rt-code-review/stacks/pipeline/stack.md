@@ -4,7 +4,7 @@ A rez package of OD Studios pipeline code: Python libraries, tools and DCC integ
 
 ## Why the code never runs
 
-Pipeline code can reach ShotGrid, the farm or production paths, even from a test or a scratch directory. Do not run `python`, `pytest`, `rez env`, `rez build` or any script from the repo. The one exception is a host probe, which only the main session runs. This holds for `rt-fix-findings` too.
+Pipeline code can reach ShotGrid, the farm or production paths, even from a test or a scratch directory. Do not run `python`, `pytest`, `rez env`, `rez build` or any script from the repo. This holds for `rt-fix-findings` and `rt-test-audit` too. Two exceptions, both for the main session alone: a host probe, and the package's declared tests, run as `Declared tests` in `setup.md` says (ADR 0012).
 
 ## Dependencies
 
