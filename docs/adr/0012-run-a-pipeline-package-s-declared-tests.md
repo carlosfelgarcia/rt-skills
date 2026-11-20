@@ -1,6 +1,6 @@
 # Run a pipeline package's declared tests
 
-Status: accepted. Narrows "Why the code never runs" in the pipeline stack.
+Status: accepted. Narrows "Why the code never runs" in the pipeline stack. Extended by ADR 0013 to `rt-comment-audit`.
 
 Pipeline tests never ran: not in a review, not after a fix run. The rule exists because pipeline code can reach ShotGrid, the render farm or production paths, even from a test. But a test audit cannot work without running tests: it needs a baseline, keepers that pass after each batch, and a mutation that turns a keeper red. And a fix run that never runs its tests leaves the user to find out later whether a fix broke one.
 

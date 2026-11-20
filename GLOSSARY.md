@@ -167,3 +167,41 @@ _Avoid_: inventory, audit log
 **Test-only seam**:
 Production code that only tests call, such as an export, a reset hook, a flag or an injection parameter. A test audit deletes it along with the tests that needed it.
 _Avoid_: test hook, backdoor
+
+### Comment audit
+
+**Comment audit**:
+A pass over a repo's comments that deletes each one or moves what it says into the code, an ADR or an issue. It covers the comments the current branch changed, or every comment in the repo.
+_Avoid_: comment cleanup, comment review
+
+**Tautology**:
+A comment that says only what the code beside it already shows.
+_Avoid_: redundant comment, noise
+
+**Excuse**:
+A comment that justifies a hack instead of fixing it. A comment audit deletes it and files an issue to fix the hack.
+_Avoid_: TODO, hack note
+
+**Stale**:
+A comment about code or behavior that no longer exists.
+_Avoid_: outdated, obsolete
+
+**Decision record**:
+A comment that records an important, non-obvious decision about the code. It goes into an ADR when the decision is hard to reverse, surprising without context and the result of a real trade-off, and into the code's names, structure or tests otherwise.
+_Avoid_: why comment, rationale
+
+**Exception**:
+A comment that a comment audit keeps because its meaning is below the ADR bar and no name, structure or test can carry it. The ratchet counts it, and each report lists it.
+_Avoid_: allowed comment, keeper
+
+**Diff audit**:
+A comment audit of the comments that the current branch's committed and uncommitted changes add or sit inside, started with `diff`. It leaves its edits uncommitted, for the user to commit with their work.
+_Avoid_: branch audit, quick audit
+
+**Full audit**:
+A comment audit of every comment in the repo, batch by batch, started with `codebase`. It commits each batch.
+_Avoid_: campaign, sweep
+
+**Ratchet**:
+A check that accepts the comments a repo has today and fails on any new one. When a file's comment count falls, the lower count becomes its limit, so counts only go down.
+_Avoid_: lint baseline, allowlist
