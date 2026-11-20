@@ -54,14 +54,34 @@ class RenderFixture(unittest.TestCase):
         self.assertNotIn("Lesson", text)
 
     def test_change_entries(self):
-        self.assertIn('<ol class="change-index"><li><a href="#change-1">Save the draft when the composer closes</a></li>'
-                      '<li><a href="#change-2">Write drafts in the version 2 shape</a></li></ol>', self.html)
+        self.assertIn('<ol class="change-index"><li><a href="#change-1"><span class="num">1</span>'
+                      '<span class="title">Save the draft when the composer closes</span>', self.html)
+        self.assertIn('<li><a href="#change-2"><span class="num">2</span><span class="title">Write drafts in the version 2 shape'
+                      '</span>', self.html)
         second = self.html[self.html.index('id="change-2"'):]
         self.assertLess(second.index("<h4>Before</h4>"), second.index("<h4>Now</h4>"))
         self.assertIn('<pre class="mermaid">graph LR', second)
         self.assertIn("<code>Sources/Drafts/DraftStore.swift</code>, <code>Tests/DraftStoreTests.swift</code>", second)
         self.assertIn('id="other-changes"', self.html)
         self.assertLess(self.html.index('id="changes"'), self.html.index('id="architecture"'))
+
+    def test_the_index_and_each_entry_show_its_files_and_worst_finding(self):
+        index = self.html[self.html.index('<ol class="change-index">'):]
+        first = index[:index.index("</li>")]
+        self.assertIn('<span class="chip">2 files</span><span class="chip blocking">3 findings</span>', first)
+        entry = self.html[self.html.index('id="change-1"'):self.html.index('class="change-body"', self.html.index('id="change-1"'))]
+        self.assertIn('<span class="chip blocking">3 findings</span>', entry)
+        self.assertEqual(render.chips(dict(files=["a"], finding_ids=["A1"]), {"A1": {"score": 5}}),
+                         '<span class="chips"><span class="chip">1 file</span><span class="chip should-fix">1 finding</span></span>')
+
+    def test_the_nav_lists_each_section_change_and_lane(self):
+        nav = self.html[self.html.index('<nav class="toc"'):self.html.index("</nav>")]
+        self.assertIn('<a href="#reversibility">Reversibility</a>', nav)
+        self.assertIn('<li><a href="#change-2"><span class="num">2</span> Write drafts in the version 2 shape</a></li>'
+                      '<li><a href="#other-changes">Other changes</a></li>', nav)
+        self.assertIn('<a href="#architecture">Architecture <span class="count">1</span></a>', nav)
+        self.assertIn('<a href="#qa">QA <span class="count">2</span></a>', nav)
+        self.assertIn('<div class="toolbar js-only">', self.html)
 
     def test_findings_link_to_the_entries_that_list_their_file(self):
         first = self.html[self.html.index('id="change-1"'):self.html.index('id="change-2"')]
@@ -202,14 +222,18 @@ class RenderWalkthrough(unittest.TestCase):
         self.assertEqual((findings_md, findings), (None, []))
         self.assertEqual(sorted(p.name for p in report.parent.iterdir()), ["walk-run.html"])
         self.assertIn("<h1>Walkthrough: PR #7 (PR)</h1>", html)
-        self.assertIn('<ol class="change-index"><li><a href="#change-1">Save the draft on close</a></li></ol>', html)
+        self.assertIn('<ol class="change-index"><li><a href="#change-1"><span class="num">1</span>'
+                      '<span class="title">Save the draft on close</span><span class="chips"><span class="chip">1 file</span>'
+                      '</span></a></li></ol>', html)
         self.assertNotIn("<th>Reviewer</th>", html)
+        self.assertNotIn('href="#architecture"', html)
         self.assertNotIn('id="architecture"', html)
         self.assertNotRegex(html, r"\{\{[A-Z_]+\}\}|<!-- (if|end) ")
 
     def test_without_a_stack_there_is_no_reversibility(self):
         _, _, _, html = self.walk("none")
         self.assertNotIn('id="reversibility"', html)
+        self.assertNotIn('href="#reversibility"', html)
         self.assertNotIn("summary.md has no Reversibility level in the brief's shape", render.warnings)
 
     def test_with_a_stack_the_reversibility_shows(self):

@@ -340,9 +340,40 @@ def link_findings(entries, findings):
         e["finding_ids"] = [d["id"] for d in sorted(mine, key=lambda d: (-d["score"], "ATQ".index(d["id"][0]), d["num"]))]
 
 
-def summary_html(overview, entries):
-    index = "".join('<li><a href="#change-%d">%s</a></li>' % (e["num"], inline(e["title"])) for e in entries)
+def plural(n, word):
+    return "%d %s%s" % (n, word, "" if n == 1 else "s")
+
+
+def chips(e, by_id):
+    out = '<span class="chip">%s</span>' % plural(len(e["files"]), "file")
+    if e["finding_ids"]:
+        top = max(by_id[i]["score"] for i in e["finding_ids"])
+        out += '<span class="chip %s">%s</span>' % (band(top).lower(), plural(len(e["finding_ids"]), "finding"))
+    return '<span class="chips">%s</span>' % out
+
+
+def summary_html(overview, entries, by_id):
+    index = "".join('<li><a href="#change-%d"><span class="num">%d</span><span class="title">%s</span>%s</a></li>' % (
+        e["num"], e["num"], inline(e["title"]), chips(e, by_id)) for e in entries)
     return overview + ('<ol class="change-index">%s</ol>' % index if index else "")
+
+
+def nav_html(entries, others):
+    items = "".join('<li><a href="#change-%d"><span class="num">%d</span> %s</a></li>' % (e["num"], e["num"], inline(e["title"]))
+                    for e in entries)
+    items += '<li><a href="#other-changes">Other changes</a></li>' if others else ""
+    return '<ol class="nav-changes">%s</ol>' % items if items else ""
+
+
+TOOLBAR = ('<div class="toolbar js-only"><span class="label">Layout</span><span class="seg" data-layout-control>'
+           '<button type="button" data-layout="auto" title="Stack an entry when a diagram or code is too wide to read side by side">Auto</button>'
+           '<button type="button" data-layout="split">Side by side</button><button type="button" data-layout="stack">Stacked</button></span>'
+           '<span class="seg"><button type="button" data-expand="all">Expand all</button>'
+           '<button type="button" data-expand="none">Collapse all</button></span>'
+           '<span class="hint"><kbd>j</kbd> <kbd>k</kbd> next and previous change · click a diagram to enlarge it</span></div>')
+
+VIEWS = ('<span class="seg views js-only" role="group" aria-label="Show"><button type="button" data-show="both">Both</button>'
+         '<button type="button" data-show="before">Before</button><button type="button" data-show="now">Now</button></span>')
 
 
 def changes_html(entries, others, by_id):
@@ -350,17 +381,19 @@ def changes_html(entries, others, by_id):
     for e in entries:
         found = " · ".join('<a href="#finding-%s">%s</a> (%d/10)' % (i, i, by_id[i]["score"]) for i in e["finding_ids"])
         out.append(
-            '<article class="change" id="change-%d"><h3><span class="num">%d</span> %s</h3>%s'
-            '<div class="pair"><div><h4>Before</h4>%s</div><div><h4>Now</h4>%s</div></div>'
-            '<p class="meta">Files: %s</p>%s</article>' % (
-                e["num"], e["num"], inline(e["title"]),
+            '<article class="change" id="change-%d" data-show="both"><div class="change-head">'
+            '<button type="button" class="fold js-only" aria-expanded="true" aria-label="Collapse or expand"></button>'
+            '<h3><span class="num">%d</span> %s</h3>%s%s</div><div class="change-body">%s'
+            '<div class="pair"><div class="side before"><h4>Before</h4>%s</div><div class="side now"><h4>Now</h4>%s</div></div>'
+            '<p class="meta">Files: %s</p>%s</div></article>' % (
+                e["num"], e["num"], inline(e["title"]), chips(e, by_id), VIEWS,
                 '<p class="why">%s</p>' % inline(e["why"]) if e["why"] else "",
                 md(e["before"]), md(e["now"]),
                 ", ".join("<code>%s</code>" % esc(f) for f in e["files"]) or "none given",
                 '<p class="meta">Findings: %s</p>' % found if found else ""))
     if others:
         out.append('<h3 id="other-changes">Other changes</h3>' + others)
-    return "".join(out) or '<p class="clean">No change entries.</p>'
+    return (TOOLBAR if entries else "") + "".join(out) or '<p class="clean">No change entries.</p>'
 
 
 def findings_file(meta, findings, report, level, run):
@@ -397,12 +430,14 @@ def render(run, out_dir):
     findings = [] if walkthrough else load_findings(run, context if meta.get("Re-review") == "yes" else None)
     overview, entries, others, level, notes = load_summary(run, has_stack)
     link_findings(entries, findings)
+    by_id = {d["id"]: d for d in findings}
     rev = '<span class="rev %s">%s</span>' % (LEVEL_CLASS[level], level) if level else ""
     values = {
         "KIND": "Walkthrough" if walkthrough else "Code review", "TARGET_TITLE": esc(meta["Target"]), "REPO": esc(meta["Repo"]), "MODE": esc(meta["Mode"]),
         "STACK": esc(meta["Stack"]), "STACK_SETTINGS": esc(meta.get("Stack settings", "none")),
         "BASE": esc(meta["Base"]), "HEAD": esc(meta["Head"]), "DATE": date,
-        "SUMMARY": summary_html(overview, entries), "CHANGES": changes_html(entries, others, {d["id"]: d for d in findings}),
+        "SUMMARY": summary_html(overview, entries, by_id), "CHANGES": changes_html(entries, others, by_id),
+        "NAV_CHANGES": nav_html(entries, others),
         "RE_REVIEW": " · re-review of one fix run" if meta.get("Re-review") == "yes" else "",
         "REVERSIBILITY_BADGE": " · " + rev if rev and has_stack else "",
         "REVERSIBILITY": "<p>%s</p>%s" % (rev, md(notes)) if rev else '<p class="clean">No reversibility given.</p>',
@@ -416,6 +451,7 @@ def render(run, out_dir):
         for b in ("Blocking", "Should-fix", "Nit"):
             values["%s_%s" % (key, b.upper().replace("-", "_"))] = str(sum(1 for d in mine if not d["dismissed"] and band(d["score"]) == b))
         values[key + "_DISMISSED"] = str(sum(d["dismissed"] for d in mine))
+        values[key + "_SHOWN"] = str(sum(not d["dismissed"] for d in mine))
 
     template = keep((HERE / "report-template.html").read_text(), {"review": not walkthrough, "reversibility": has_stack})
     report.write_text(fill(template, values))
