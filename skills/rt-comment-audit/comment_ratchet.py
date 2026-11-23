@@ -17,13 +17,19 @@ USAGE = """List the comments in a repo's Swift and Python files, and hold their 
   init                write the baseline from the current counts
   check [--lower]     fail when a file has more counted comment lines than the baseline allows
 
-Counted lines are comment and doc lines. Directives, shebangs, encoding lines and a
-license header at the top of a file are listed but never counted.
+Listed and counted: comment and doc lines. Listed, never counted: directives.
+Never listed or counted: shebangs, encoding lines, the swift-tools-version line and a
+license header at the top of a file.
 """
 
 BASELINE = ".comment-ratchet.json"
 COUNTED = ("comment", "doc")
+LISTED = COUNTED + ("directive",)
+BEFORE_HEADER = ("shebang", "encoding", "tools-version")
 LICENSE = re.compile(r"SPDX-License-Identifier|\blicen[cs]e", re.IGNORECASE)
+COPYRIGHT = re.compile(r"\bcopyright\b|©|all rights reserved", re.IGNORECASE)
+XCODE_TEMPLATE = re.compile(r"^\W*created by\b", re.IGNORECASE | re.MULTILINE)
+SWIFT_TOOLS_VERSION = re.compile(r"^//\s*swift-tools-version\s*:")
 ENCODING = re.compile(r"^#.*coding[:=]")
 PY_DIRECTIVE = re.compile(
     r"^#\s*(noqa\b|type:|pragma\b|pylint:|pyright:|mypy:|fmt:|isort:|ruff:|nosec\b|pyre-)")
@@ -91,7 +97,9 @@ def swift_comments(src):
                 end = n if end < 0 else end
                 text = src[i:end]
                 own = not src[src.rfind("\n", 0, i) + 1:i].strip()
-                if SWIFT_DIRECTIVE.match(text):
+                if line == 1 and SWIFT_TOOLS_VERSION.match(text):
+                    kind = "tools-version"
+                elif SWIFT_DIRECTIVE.match(text):
                     kind = "directive"
                 elif text.startswith("///") and not text.startswith("////"):
                     kind = "doc"
@@ -180,13 +188,33 @@ def _group(comments):
 
 def _finish(src, comments):
     comments.sort(key=lambda c: c.start)
-    skip = {c.start for c in comments if c.kind in ("shebang", "encoding")}
+    skip = {c.start for c in comments if c.kind in BEFORE_HEADER}
     lines = src.splitlines()
     first = next((k + 1 for k, text in enumerate(lines) if text.strip() and k + 1 not in skip), None)
-    for c in comments:
-        if c.start == first and c.own_line and c.kind == "comment" and LICENSE.search(c.text):
+    header = _header(lines, comments, first)
+    text = "\n".join(c.text for c in header)
+    if LICENSE.search(text) or (COPYRIGHT.search(text) and not XCODE_TEMPLATE.search(text)):
+        for c in header:
             c.kind = "license"
     return comments
+
+
+def _header(lines, comments, first):
+    blocks = [c for c in comments if c.own_line and c.kind in COUNTED]
+    start = next((k for k, c in enumerate(blocks) if c.start == first), None)
+    if start is None or not _has_marker(blocks[start]):
+        return []
+    header = [blocks[start]]
+    for c in blocks[start + 1:]:
+        gap = lines[header[-1].end:c.start - 1]
+        if any(text.strip() for text in gap) or not _has_marker(c):
+            break
+        header.append(c)
+    return header
+
+
+def _has_marker(comment):
+    return bool(LICENSE.search(comment.text) or COPYRIGHT.search(comment.text))
 
 
 LANGUAGES = {".py": python_comments, ".swift": swift_comments}
@@ -264,7 +292,7 @@ def cmd_list(root, args, patterns):
         targets = {rel: [(1, float("inf"))] for rel in repo_files(root, patterns)}
     for rel in sorted(targets):
         for c in comments_in(os.path.join(root, rel)):
-            if any(c.start <= hi and c.end >= lo for lo, hi in targets[rel]):
+            if c.kind in LISTED and any(c.start <= hi and c.end >= lo for lo, hi in targets[rel]):
                 where = "%s:%d" % (rel, c.start) + ("-%d" % c.end if c.end != c.start else "")
                 first = c.text.splitlines()[0].strip() if c.text.strip() else ""
                 print("\t".join((where, c.kind, "own-line" if c.own_line else "trailing", first[:100])))

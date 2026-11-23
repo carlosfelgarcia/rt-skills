@@ -198,6 +198,10 @@ _Avoid_: allowed comment, keeper
 A comment audit of the comments that the current branch's committed and uncommitted changes add or sit inside, started with `diff`. It leaves its edits uncommitted, for the user to commit with their work.
 _Avoid_: branch audit, quick audit
 
+**License header**:
+The comment at the top of a file that states its copyright or license. A comment audit leaves it as it is. An Xcode template header is not one, even with its copyright line.
+_Avoid_: copyright header, file header, legal notice
+
 **Full audit**:
 A comment audit of every comment in the repo, batch by batch, started with `codebase`. It commits each batch.
 _Avoid_: campaign, sweep

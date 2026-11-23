@@ -56,8 +56,22 @@ class Swift(unittest.TestCase):
         self.assertEqual([c.kind for c in ratchet.swift_comments(src)], ["license", "comment"])
 
     def test_xcode_header_is_a_comment(self):
-        src = '//\n//  App.swift\n//  Copyright (c) 2026 Me. All rights reserved.\n//\nimport SwiftUI\n'
-        self.assertEqual(kinds(ratchet.swift_comments(src)), [(1, 4, "comment", True)])
+        src = ('//\n//  App.swift\n//  Created by Me on 1/1/26.\n'
+               '//  Copyright (c) 2026 Me. All rights reserved.\n//\nimport SwiftUI\n')
+        self.assertEqual(kinds(ratchet.swift_comments(src)), [(1, 5, "comment", True)])
+
+    def test_xcode_header_with_a_license_is_a_license(self):
+        src = '//\n//  App.swift\n//  Created by Me on 1/1/26.\n//  Licensed under MIT.\n//\nimport SwiftUI\n'
+        self.assertEqual(kinds(ratchet.swift_comments(src)), [(1, 5, "license", True)])
+
+    def test_block_copyright_header(self):
+        src = '/*\n * Copyright 2024 Acme. All rights reserved.\n */\nimport Foundation\n'
+        self.assertEqual(kinds(ratchet.swift_comments(src)), [(1, 3, "license", True)])
+
+    def test_tools_version_comes_before_the_license_header(self):
+        src = '// swift-tools-version:5.9\n// Copyright 2024 Acme\nimport PackageDescription\n// later\n'
+        self.assertEqual(kinds(ratchet.swift_comments(src)), [
+            (1, 1, "tools-version", True), (2, 2, "license", True), (4, 4, "comment", True)])
 
 
 class Python(unittest.TestCase):
@@ -81,6 +95,32 @@ class Python(unittest.TestCase):
             (1, 1, "shebang", True), (2, 2, "encoding", True), (3, 3, "doc", True),
             (5, 5, "directive", False), (9, 10, "doc", True), (11, 12, "comment", True),
             (13, 13, "comment", False)])
+
+    def test_docstring_license_header(self):
+        src = '"""Copyright 2024 Acme.\n\nLicensed under the Apache License 2.0.\n"""\nimport os\n'
+        self.assertEqual(kinds(ratchet.python_comments(src)), [(1, 4, "license", True)])
+
+    def test_copyright_only_header(self):
+        src = '# Copyright 2024 Acme. All rights reserved.\nimport os\n'
+        self.assertEqual(kinds(ratchet.python_comments(src)), [(1, 1, "license", True)])
+
+    def test_header_grows_across_blank_lines_only_while_marked(self):
+        src = '\n'.join([
+            '#!/usr/bin/env python3',
+            '# Copyright 2024 Acme',
+            '',
+            '# Licensed under MIT',
+            '',
+            '# Parses shot lists.',
+            'import os',
+        ])
+        self.assertEqual(kinds(ratchet.python_comments(src)), [
+            (1, 1, "shebang", True), (2, 2, "license", True), (4, 4, "license", True),
+            (6, 6, "comment", True)])
+
+    def test_unmarked_first_comment_is_not_a_header(self):
+        src = '# Parses shot lists.\n\n# Copyright 2024 Acme\nimport os\n'
+        self.assertEqual([c.kind for c in ratchet.python_comments(src)], ["comment", "comment"])
 
     def test_counted_lines_skip_exempt_kinds(self):
         src = '# Licensed under the Apache License\nx = 1  # type: int\ny = 2  # why\n'
@@ -159,6 +199,13 @@ class Repo(unittest.TestCase):
         _, out = self.run_cli("list", "--base", base)
         where = [line.split("\t")[0] for line in out.splitlines()]
         self.assertEqual(where, ["a.py:23", "a.py:24", "c.py:1"])
+
+    def test_list_leaves_out_headers_shebangs_and_encoding_lines(self):
+        self.write("h.py", "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n"
+                           "# SPDX-License-Identifier: MIT\nimport os  # noqa: F401\n")
+        _, out = self.run_cli("list")
+        rows = [line.split("\t")[:2] for line in out.splitlines() if line.startswith("h.py")]
+        self.assertEqual(rows, [["h.py:4", "directive"]])
 
     def test_list_everything_without_a_base(self):
         _, out = self.run_cli("list")
