@@ -27,9 +27,9 @@ With `codebase`, follow [`full-audit.md`](full-audit.md) now, in place of steps 
 
 Set `BASE=$(git merge-base <default> HEAD)`, with `<default>` as the Branch work row of `<review folder>/target.md` finds it. Stop with one sentence when `git diff BASE` and `git ls-files --others --exclude-standard` both print nothing.
 
-Run `<script> list --base BASE` into `<run folder>/comments.tsv`: each Swift and Python comment the diff adds or sits inside, with its kind (`comment`, `doc`, `directive`, `license`, `shebang`, `encoding`). For every other source file the diff touches, read its diff and add each comment inside a changed hunk as a row, kind `comment`.
+Run `<script> list --base BASE` into `<run folder>/comments.tsv`: each Swift and Python comment the diff adds or sits inside, with its kind (`comment`, `doc` or `directive`). For every other source file the diff touches, read "Lines the audit skips" in [`judging.md`](judging.md), then add a row, kind `comment`, for each other comment inside a changed hunk.
 
-**Done when** every comment inside the diff's changed hunks has a row.
+**Done when** every comment inside the diff's changed hunks has a row, apart from the lines the audit skips.
 
 ## 3. Judge
 
