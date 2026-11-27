@@ -22,7 +22,3 @@ Write `unknown` for a setting you cannot find; `// swift-tools-version:` is not 
 ## Fix checks
 
 After the last fix of an `rt-fix-findings` run, one session has the machine, so run one build and test pass. Use the test command that the repo documents. Without one, run `swift test` for a `Package.swift`, or `xcodebuild test` with the scheme from `xcodebuild -list` and an available simulator for an Xcode project. A tool that is not installed, as on a Linux machine, is a check that did not run.
-
-## Ratchet
-
-Ratchet: yes. These are the user's own projects, so `rt-comment-audit` installs the comment ratchet (ADR 0013).

@@ -191,7 +191,7 @@ A comment that records an important, non-obvious decision about the code. It goe
 _Avoid_: why comment, rationale
 
 **Exception**:
-A comment that a comment audit keeps because its meaning is below the ADR bar and no name, structure or test can carry it. The ratchet counts it, and each report lists it.
+A comment that a comment audit keeps because its meaning is below the ADR bar and no name, structure or test can carry it. Each report lists it.
 _Avoid_: allowed comment, keeper
 
 **Diff audit**:
@@ -206,6 +206,3 @@ _Avoid_: copyright header, file header, legal notice
 A comment audit of every comment in the repo, batch by batch, started with `codebase`. It commits each batch.
 _Avoid_: campaign, sweep
 
-**Ratchet**:
-A check that accepts the comments a repo has today and fails on any new one. When a file's comment count falls, the lower count becomes its limit, so counts only go down.
-_Avoid_: lint baseline, allowlist

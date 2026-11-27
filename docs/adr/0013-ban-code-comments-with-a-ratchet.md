@@ -1,6 +1,6 @@
 # Ban code comments, with a ratchet
 
-Status: accepted.
+Status: superseded in part by ADR 0014, which drops the ratchet. The ban and the audit stand.
 
 The old rule allowed a comment wherever the logic was complex or non-obvious. In practice that let comments pile up: some only repeated the code, some described code that had since changed, and some justified a hack, which agents then copied as if the hack were the pattern. A comment is read by every agent that opens the file, so a wrong one keeps steering work long after anyone checks it.
 
