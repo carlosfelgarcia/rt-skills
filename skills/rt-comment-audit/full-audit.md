@@ -1,6 +1,6 @@
 # Full audit
 
-A full audit judges every comment in the repo, batch by batch. It replaces steps 2 to 5 of [`SKILL.md`](SKILL.md) and continues with its step 6. [`judging.md`](judging.md) and [`edits.md`](edits.md) apply throughout. Start each step only when the one before is done.
+A full audit judges every comment in the repo, batch by batch. It replaces steps 2 to 5 of [`SKILL.md`](SKILL.md) and continues with its step 6, the report. [`judging.md`](judging.md) and [`edits.md`](edits.md) apply throughout. Start each step only when the one before is done.
 
 ## 0. Branch
 
@@ -26,7 +26,7 @@ Compare each table's rows with the batch's rows in `comments.tsv`. Send the rows
 
 Merge issues that two batches raise for the same hack, and ADRs that record the same decision. Show one judgements table per batch, then each issue and ADR with the comments it absorbs, as step 4 of `SKILL.md` says. Wait for the user's answer.
 
-**Done when** the user has approved the batches and rows to act on, or rejected them all, which ends the run at step 7 of `SKILL.md`.
+**Done when** the user has approved the batches and rows to act on, or rejected them all, which ends the run at step 6 of `SKILL.md`.
 
 ## 4. Edit, batch by batch
 

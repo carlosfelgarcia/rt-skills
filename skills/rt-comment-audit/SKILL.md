@@ -1,27 +1,27 @@
 ---
 name: rt-comment-audit
-description: Audit the comments a branch's changes add or sit inside (`diff`), or every comment in the repo (`codebase`), and move what each one says into the code, an ADR or an issue. In your own projects, a ratchet stops new comments.
+description: Audit the comments a branch's changes add or sit inside (`diff`), or every comment in the repo (`codebase`), and move what each one says into the code, an ADR or an issue.
 disable-model-invocation: true
 argument-hint: "<diff | codebase> [stack]"
 ---
 
 # RT comment audit
 
-Code comments are banned (ADR 0013). A **comment audit** judges each comment as a **tautology**, **stale**, an **excuse** or a **decision record**, and moves what it says to a place that can be checked: the code's names, structure or tests, an ADR, or an issue. Then the comment goes. In a stack whose `setup.md` says `Ratchet: yes`, a **ratchet** stops new comments from arriving.
+Code comments are banned (ADR 0013). A **comment audit** judges each comment as a **tautology**, **stale**, an **excuse** or a **decision record**, and moves what it says to a place that can be checked: the code's names, structure or tests, an ADR, or an issue. Then the comment goes. Nothing stops new comments between audits (ADR 0014).
 
 A **diff audit** (`diff`) covers the comments the branch's changes add or sit inside, committed or not, and commits nothing: the user commits the cleanup with their work. A **full audit** (`codebase`) covers every comment, batch by batch, one commit per batch.
 
-`<skill>` below is this skill's base directory, `<review folder>` is `<skill>/../rt-code-review/`, and `<script>` is `python3 <skill>/comment_ratchet.py --root <repo root>`. Always run the plugin's copy of the script, never a copy inside the repo.
+`<skill>` below is this skill's base directory, `<review folder>` is `<skill>/../rt-code-review/`, and `<script>` is `python3 <skill>/comment_scan.py --root <repo root>`.
 
 ## 1. Set up
 
 The arguments, in any order: `diff` or `codebase`, which is required, and an optional stack, a folder name in `<review folder>/stacks/`. Stop with one sentence that lists both modes and the stacks when the mode is missing or an argument is neither.
 
-Pick the stack as the `Stack` section of `<review folder>/target.md` says, with `git ls-files` plus untracked files as the list-files command; with none or several, stop and ask for the stack as an argument. Read its `stack.md` and the `Ratchet` line of its `setup.md`. Record `PRE_AUDIT=$(git rev-parse HEAD)`, make the run folder `/tmp/rt-comment-audit/runs/<repo>-<YYYYmmdd-HHMMSS>/`, and write `<script> count` to `count-before.json` in it.
+Pick the stack as the `Stack` section of `<review folder>/target.md` says, with `git ls-files` plus untracked files as the list-files command; with none or several, stop and ask for the stack as an argument. Read its `stack.md`. Record `PRE_AUDIT=$(git rev-parse HEAD)`, make the run folder `/tmp/rt-comment-audit/runs/<repo>-<YYYYmmdd-HHMMSS>/`, and write `<script> count` to `count-before.json` in it.
 
 With `codebase`, follow [`full-audit.md`](full-audit.md) now, in place of steps 2 to 5.
 
-**Done when** the stack, ratchet setting, `PRE_AUDIT` and run folder are set, and `count-before.json` is written.
+**Done when** the stack, `PRE_AUDIT` and run folder are set, and `count-before.json` is written.
 
 ## 2. List the comments
 
@@ -41,7 +41,7 @@ Read [`judging.md`](judging.md). Judge every row and write the judgements table 
 
 Show the judgements table, then each issue and ADR the actions would create, with its title and the comments it absorbs. When an Excuse would file an issue and the repo has no `docs/agents/issue-tracker.md`, ask where its issues go. Wait for the user's answer. A row the user rejects stays, as **kept by you**.
 
-**Done when** the user has approved the rows to act on, or rejected them all, which ends the run at step 7.
+**Done when** the user has approved the rows to act on, or rejected them all, which ends the run at step 6.
 
 ## 5. Edit
 
@@ -49,13 +49,7 @@ Read [`edits.md`](edits.md) and apply every approved row as it says. Leave every
 
 **Done when** every approved row is applied, or reverted with its reason, the checks `edits.md` names have a result, and every issue is filed with its URL recorded.
 
-## 6. Ratchet
-
-With `Ratchet: yes`, follow [`ratchet.md`](ratchet.md). With `Ratchet: no`, the repo gets no script and no baseline.
-
-**Done when** `ratchet.md` is done, or the setting is `no`.
-
-## 7. Report
+## 6. Report
 
 Write `<script> count` to `<run folder>/count-after.json`. **Lines shed** is the fall in `own_line`; trailing comments go without shedding a line. **Not yet audited** is the `total` after, less the lines of every kept comment. Reply with only this, leaving out empty sections:
 
@@ -83,8 +77,6 @@ Kept:
 - `<file:line>` exception: <why no name, structure or test can carry it>
 - `<file:line>` unsure: <what the evidence did not settle>
 - `<file:line>` kept by you
-
-Ratchet: <installed, wired into <hook | CI> | lowered <n> files | not wired: <reason> | not used for this stack>
 
 Checks:
 - Ran: <command>: <passed | failed>

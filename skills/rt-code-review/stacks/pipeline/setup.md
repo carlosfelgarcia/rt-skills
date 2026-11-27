@@ -30,7 +30,3 @@ The only way pipeline tests run (ADR 0012): the `tests` entry in `package.py`, t
 2. For each declared test whose `run_on` leaves out `pre_install`: `rez test --paths "<prefix>:<packages path>" "<name>==<version>" <test>`, with `name` and `version` from `package.py`, and `<packages path>` the paths `rez config packages_path` lists, joined with `:`. The exact version keeps rez on the build in `<prefix>` rather than a higher release.
 
 A package that declares no `tests` runs none: its tests did not run, and the summary says so.
-
-## Ratchet
-
-Ratchet: no. Pipeline packages are shared with the rest of OD Studios, so `rt-comment-audit` deletes and moves comments and installs nothing (ADR 0013).

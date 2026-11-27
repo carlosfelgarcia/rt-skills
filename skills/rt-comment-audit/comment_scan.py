@@ -10,19 +10,16 @@ import subprocess
 import sys
 import tokenize
 
-USAGE = """List the comments in a repo's Swift and Python files, and hold their count to a ratchet.
+USAGE = """List and count the comments in a repo's Swift and Python files.
 
   list [--base SHA]   every comment, or only those a diff from SHA adds or sits inside
   count               counted comment lines per file, with totals
-  init                write the baseline from the current counts
-  check [--lower]     fail when a file has more counted comment lines than the baseline allows
 
 Listed and counted: comment and doc lines. Listed, never counted: directives.
 Never listed or counted: shebangs, encoding lines, the swift-tools-version line and a
 license header at the top of a file.
 """
 
-BASELINE = ".comment-ratchet.json"
 COUNTED = ("comment", "doc")
 LISTED = COUNTED + ("directive",)
 BEFORE_HEADER = ("shebang", "encoding", "tools-version")
@@ -237,14 +234,6 @@ def git(root, *args):
     return subprocess.run(("git",) + args, cwd=root, check=True, capture_output=True, text=True).stdout
 
 
-def load_baseline(root):
-    path = os.path.join(root, BASELINE)
-    if not os.path.exists(path):
-        return None
-    with open(path) as f:
-        return json.load(f)
-
-
 def excluded(rel, patterns):
     return any(fnmatch.fnmatch(rel, p) for p in patterns)
 
@@ -307,59 +296,18 @@ def cmd_count(root, patterns):
     print(json.dumps({"files": files, "total": sum(files.values()), "own_line": own}, indent=2))
 
 
-def write_baseline(root, baseline):
-    baseline["files"] = dict(sorted(baseline["files"].items()))
-    with open(os.path.join(root, BASELINE), "w") as f:
-        json.dump(baseline, f, indent=2)
-        f.write("\n")
-
-
-def cmd_init(root, patterns):
-    write_baseline(root, {"exclude": patterns, "files": counts(root, patterns)})
-
-
-def cmd_check(root, args, baseline):
-    if baseline is None:
-        print("no %s at %s; run init first" % (BASELINE, root), file=sys.stderr)
-        return 2
-    limits = baseline.get("files", {})
-    now = counts(root, baseline.get("exclude", []))
-    over = {rel: n for rel, n in now.items() if n > limits.get(rel, 0)}
-    for rel in sorted(over):
-        print("%s: %d comment lines, limit %d" % (rel, over[rel], limits.get(rel, 0)))
-    if over:
-        print("This repo bans code comments. Move what each new comment says into a name, a test, "
-              "an ADR or an issue; /rt-comment-audit does it.")
-        return 1
-    if args.lower:
-        lowered = {rel: n for rel, n in now.items() if n < limits.get(rel, 0)}
-        gone = [rel for rel in limits if rel not in now]
-        if lowered or gone:
-            baseline["files"] = now
-            write_baseline(root, baseline)
-            print("lowered %d files, dropped %d" % (len(lowered), len(gone)))
-    return 0
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=USAGE, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("list", "count", "init", "check"))
+    parser.add_argument("command", choices=("list", "count"))
     parser.add_argument("--root", help="repo root; defaults to the git top level of the working directory")
     parser.add_argument("--base", help="list: only comments a diff from this commit adds or sits inside")
     parser.add_argument("--exclude", action="append", default=[], help="glob of paths to skip, repeatable")
-    parser.add_argument("--lower", action="store_true", help="check: lower the baseline to counts that fell")
     args = parser.parse_args(argv)
     root = args.root or git(os.getcwd(), "rev-parse", "--show-toplevel").strip()
-    baseline = load_baseline(root)
-    patterns = (baseline or {}).get("exclude", []) + args.exclude
     if args.command == "list":
-        cmd_list(root, args, patterns)
-    elif args.command == "count":
-        cmd_count(root, patterns)
-    elif args.command == "init":
-        cmd_init(root, patterns)
+        cmd_list(root, args, args.exclude)
     else:
-        return cmd_check(root, args, baseline)
+        cmd_count(root, args.exclude)
     return 0
 
 
