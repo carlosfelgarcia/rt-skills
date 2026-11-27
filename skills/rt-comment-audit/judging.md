@@ -15,7 +15,7 @@ An excuse and a decision record can read alike. An excuse says the code is wrong
 
 ## Directives
 
-A directive (`# noqa`, `# type: ignore`, `// swiftlint:disable`) is judged like any comment. One that still suppresses a false positive stays, kind `directive`, and `count` never counts it. One that suppresses nothing is Stale. One that silences a real problem is an Excuse. Settle "suppresses nothing" from the code; when only running the linter could settle it, mark the directive **unsure**.
+A directive (`# noqa`, `# type: ignore`, `// swiftlint:disable`) is judged like any comment. One that still suppresses a false positive stays, kind `directive`. One that suppresses nothing is Stale. One that silences a real problem is an Excuse. Settle "suppresses nothing" from the code; when only running the linter could settle it, mark the directive **unsure**.
 
 ## Lines the audit skips
 

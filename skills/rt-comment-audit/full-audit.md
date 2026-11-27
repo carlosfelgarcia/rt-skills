@@ -26,7 +26,7 @@ Compare each table's rows with the batch's rows in `comments.tsv`. Send the rows
 
 Merge issues that two batches raise for the same hack, and ADRs that record the same decision. Show one judgements table per batch, then each issue and ADR with the comments it absorbs, as step 4 of `SKILL.md` says. Wait for the user's answer.
 
-**Done when** the user has approved the batches and rows to act on, or rejected them all, which ends the run at step 6 of `SKILL.md`.
+**Done when** the user has approved the batches and rows to act on, or rejected them all, which ends the run at step 6 of `SKILL.md`, the report.
 
 ## 4. Edit, batch by batch
 

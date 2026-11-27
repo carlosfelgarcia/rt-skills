@@ -7,11 +7,11 @@ argument-hint: "<diff | codebase> [stack]"
 
 # RT comment audit
 
-Code comments are banned (ADR 0013). A **comment audit** judges each comment as a **tautology**, **stale**, an **excuse** or a **decision record**, and moves what it says to a place that can be checked: the code's names, structure or tests, an ADR, or an issue. Then the comment goes. Nothing stops new comments between audits (ADR 0014).
+Code comments are banned (ADR 0013). A **comment audit** judges each comment as a **tautology**, **stale**, an **excuse** or a **decision record**, and moves what it says to a place that can be checked: the code's names, structure or tests, an ADR, or an issue. Then the comment goes.
 
 A **diff audit** (`diff`) covers the comments the branch's changes add or sit inside, committed or not, and commits nothing: the user commits the cleanup with their work. A **full audit** (`codebase`) covers every comment, batch by batch, one commit per batch.
 
-`<skill>` below is this skill's base directory, `<review folder>` is `<skill>/../rt-code-review/`, and `<script>` is `python3 <skill>/comment_scan.py --root <repo root>`.
+`<skill>` below is this skill's base directory, `<review folder>` is `<skill>/../rt-code-review/`, and `<script>` is `python3 <skill>/comment_scan.py --root <repo root>`, followed by `--exclude <glob>` for each folder of vendored or generated code the repo commits, such as `Pods/*`, `Carthage/*` or `Vendor/*`.
 
 ## 1. Set up
 
@@ -41,7 +41,7 @@ Read [`judging.md`](judging.md). Judge every row and write the judgements table 
 
 Show the judgements table, then each issue and ADR the actions would create, with its title and the comments it absorbs. When an Excuse would file an issue and the repo has no `docs/agents/issue-tracker.md`, ask where its issues go. Wait for the user's answer. A row the user rejects stays, as **kept by you**.
 
-**Done when** the user has approved the rows to act on, or rejected them all, which ends the run at step 6.
+**Done when** the user has approved the rows to act on, or rejected them all, which ends the run at step 6, the report.
 
 ## 5. Edit
 
